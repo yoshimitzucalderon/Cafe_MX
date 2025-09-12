@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 
-import { createClient } from '../supabase/tenant-client';
+import { createTenantClient } from '../supabase/tenant-client';
 
 async function main() {
   const args = process.argv.slice(2);
@@ -23,7 +23,7 @@ async function main() {
   console.log('');
 
   try {
-    const result = await createClient({
+    const result = await createTenantClient({
       nombre_negocio,
       slug,
       owner_email,

@@ -23,9 +23,9 @@ export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey!, {
   db: { schema: 'public' }
 });
 
-const clientCache = new Map<string, SupabaseClient>();
+const clientCache = new Map<string, any>();
 
-export function getClientSupabase(schemaName: string): SupabaseClient {
+export function getClientSupabase(schemaName: string): any {
   if (!schemaName) {
     throw new Error('Schema name is required for tenant client');
   }
@@ -54,7 +54,7 @@ export function getClientSupabase(schemaName: string): SupabaseClient {
   return client;
 }
 
-export function getUserSupabase(schemaName?: string): SupabaseClient {
+export function getUserSupabase(schemaName?: string): any {
   if (schemaName) {
     return createClient(supabaseUrl, supabaseAnonKey!, {
       db: { schema: schemaName },
@@ -132,7 +132,7 @@ export async function getUserClients(userId: string): Promise<UserClientAccess[]
       return [];
     }
 
-    return data as UserClientAccess[];
+    return data as any;
   } catch (error) {
     console.error('Exception in getUserClients:', error);
     return [];
@@ -210,7 +210,7 @@ export async function validateClientAccess(
   }
 }
 
-export async function createClient({
+export async function createTenantClient({
   nombre_negocio,
   slug,
   owner_email,
@@ -371,11 +371,11 @@ export async function getClientStats(schemaName: string): Promise<{
     ]);
 
     const totalTickets = ticketsResult.data?.length || 0;
-    const processedTickets = ticketsResult.data?.filter(t => t.status === 'processed').length || 0;
+    const processedTickets = ticketsResult.data?.filter((t: any) => t.status === 'processed').length || 0;
     const totalProducts = productsResult.data?.length || 0;
-    const activeProducts = productsResult.data?.filter(p => p.activo).length || 0;
+    const activeProducts = productsResult.data?.filter((p: any) => p.activo).length || 0;
     const totalSales = salesResult.data?.length || 0;
-    const monthlyRevenue = salesResult.data?.reduce((sum, sale) => sum + (sale.total || 0), 0) || 0;
+    const monthlyRevenue = salesResult.data?.reduce((sum: number, sale: any) => sum + (sale.total || 0), 0) || 0;
 
     return {
       totalTickets,
