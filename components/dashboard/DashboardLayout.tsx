@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
   Coffee, 
   LayoutDashboard, 
@@ -14,9 +14,12 @@ import {
   Menu,
   X,
   LogOut,
-  User
+  User,
+  ChevronDown,
+  Building2
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useAuth } from '../../lib/hooks/useAuth';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -34,7 +37,39 @@ const navigation = [
 
 export default function DashboardLayout({ children, cafeteriaSlug }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, userClients, signOut } = useAuth();
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Find current client info
+  const currentClient = userClients.find(c => c.cliente.slug === cafeteriaSlug);
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [userMenuOpen]);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.push('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
   const getFullPath = (href: string) => `/${cafeteriaSlug}${href}`;
   
@@ -151,11 +186,83 @@ export default function DashboardLayout({ children, cafeteriaSlug }: DashboardLa
             </button>
 
             <div className="flex items-center space-x-4">
-              {/* Notifications, user menu, etc. */}
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-500">
-                  Última actualización: hace 2 min
-                </span>
+              {/* Current Client Info */}
+              <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-500">
+                <Building2 className="h-4 w-4" />
+                <span>{currentClient?.cliente.nombre_negocio || cafeteriaSlug}</span>
+              </div>
+
+              {/* User Menu */}
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center space-x-2 p-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  <User className="h-4 w-4 text-gray-500" />
+                  <span className="hidden md:inline text-gray-700">
+                    {user?.user_metadata?.full_name || user?.email?.split('@')[0]}
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                </button>
+
+                {/* User Dropdown Menu */}
+                {userMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                    {/* User Info */}
+                    <div className="px-4 py-3 border-b border-gray-200">
+                      <p className="text-sm font-medium text-gray-900">
+                        {user?.user_metadata?.full_name || 'Usuario'}
+                      </p>
+                      <p className="text-sm text-gray-500">{user?.email}</p>
+                      {currentClient && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          Rol: {currentClient.rol}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Navigation */}
+                    <div className="py-1">
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        <div className="flex items-center">
+                          <Building2 className="h-4 w-4 mr-2" />
+                          Mis Cafeterías
+                        </div>
+                      </Link>
+                      
+                      <Link
+                        href={`/${cafeteriaSlug}/configuracion`}
+                        onClick={() => setUserMenuOpen(false)}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        <div className="flex items-center">
+                          <Settings className="h-4 w-4 mr-2" />
+                          Configuración
+                        </div>
+                      </Link>
+                    </div>
+
+                    {/* Sign Out */}
+                    <div className="border-t border-gray-200 py-1">
+                      <button
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          handleSignOut();
+                        }}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        <div className="flex items-center">
+                          <LogOut className="h-4 w-4 mr-2" />
+                          Cerrar Sesión
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
