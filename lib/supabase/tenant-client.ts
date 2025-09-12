@@ -1,24 +1,38 @@
 import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-  throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_URL');
+if (typeof window === 'undefined') {
+  // Server-side checks
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_URL');
+  }
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Missing env.SUPABASE_SERVICE_ROLE_KEY');
+  }
+} else {
+  // Client-side checks
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    console.error('Missing env.NEXT_PUBLIC_SUPABASE_URL - Authentication will not work');
+    throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_URL');
+  }
+
+  if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    console.error('Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY - Authentication will not work');
+    throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  }
 }
 
-if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error('Missing env.SUPABASE_SERVICE_ROLE_KEY');
-}
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { persistSession: false },
   db: { schema: 'public' }
 });
 
-export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey!, {
+export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: { persistSession: true },
   db: { schema: 'public' }
 });
