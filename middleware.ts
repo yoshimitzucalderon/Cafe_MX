@@ -8,13 +8,15 @@ export async function middleware(request: NextRequest) {
   console.log(`🌐 Middleware processing: ${hostname}${url.pathname}`);
 
   const isLocalhost = hostname.includes('localhost') || hostname.includes('127.0.0.1');
+  const isVercelApp = hostname.includes('vercel.app');
   
   let subdomain: string | null = null;
   
   if (isLocalhost) {
     const subdomainMatch = hostname.match(/^([^.]+)\.localhost/);
     subdomain = subdomainMatch ? subdomainMatch[1] : null;
-  } else {
+  } else if (!isVercelApp) {
+    // Only treat as subdomain if it's not a Vercel deployment
     const parts = hostname.split('.');
     if (parts.length >= 3) {
       subdomain = parts[0];
