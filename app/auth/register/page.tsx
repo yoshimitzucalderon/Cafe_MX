@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Coffee, Eye, EyeOff, Mail, Lock, User, Building2, Phone } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Coffee, Eye, EyeOff, Mail, Lock, User, Building2, Phone, CheckCircle, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../../lib/hooks/useAuth';
+import { onboardingService } from '../../../lib/auth/onboarding-service';
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -14,8 +17,14 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
     acceptTerms: false,
+    rfc: '',
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  
+  const { signUp } = useAuth();
+  const router = useRouter();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -27,29 +36,74 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setIsLoading(true);
     
-    // Basic validation
-    if (formData.password !== formData.confirmPassword) {
-      alert('Las contraseñas no coinciden');
-      setIsLoading(false);
-      return;
-    }
+    try {
+      // Basic validation
+      if (formData.password !== formData.confirmPassword) {
+        setError('Las contraseñas no coinciden');
+        setIsLoading(false);
+        return;
+      }
 
-    if (!formData.acceptTerms) {
-      alert('Debes aceptar los términos y condiciones');
+      if (!formData.acceptTerms) {
+        setError('Debes aceptar los términos y condiciones');
+        setIsLoading(false);
+        return;
+      }
+
+      // Validate business name
+      const businessValidation = onboardingService.validateBusinessName(formData.businessName);
+      if (!businessValidation.valid) {
+        setError(businessValidation.error!);
+        setIsLoading(false);
+        return;
+      }
+
+      // Validate RFC if provided
+      if (formData.rfc) {
+        const rfcValidation = onboardingService.validateRFC(formData.rfc);
+        if (!rfcValidation.valid) {
+          setError(rfcValidation.error!);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      console.log('🚀 Starting registration process...');
+
+      // Step 1: Create auth user
+      const { error: authError } = await signUp(
+        formData.email.trim(),
+        formData.password,
+        {
+          full_name: formData.ownerName.trim(),
+          business_name: formData.businessName.trim(),
+          phone: formData.phone.trim() || undefined,
+        }
+      );
+
+      if (authError) {
+        console.error('❌ Auth registration failed:', authError);
+        setError(authError);
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('✅ User authentication created successfully');
+      setSuccess(true);
+      
+      // Redirect to a success page or dashboard after a brief delay
+      setTimeout(() => {
+        router.push('/auth/verify-email');
+      }, 2000);
+
+    } catch (error) {
+      console.error('🚨 Registration error:', error);
+      setError(error instanceof Error ? error.message : 'Error desconocido durante el registro');
       setIsLoading(false);
-      return;
     }
-    
-    // TODO: Implement actual registration
-    console.log('Registration attempt:', formData);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      alert('Función de registro en desarrollo. Pronto estará disponible.');
-    }, 1000);
   };
 
   return (
@@ -68,6 +122,28 @@ export default function RegisterPage() {
             Comienza tu prueba gratuita de 30 días
           </p>
         </div>
+
+        {/* Success Message */}
+        {success && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center">
+              <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+              <p className="text-sm text-green-800">
+                ¡Cuenta creada exitosamente! Revisa tu email para verificar tu cuenta.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          </div>
+        )}
 
         {/* Registration Form */}
         <form className="space-y-6" onSubmit={handleSubmit}>
@@ -157,6 +233,27 @@ export default function RegisterPage() {
             </div>
 
             <div>
+              <label htmlFor="rfc" className="block text-sm font-medium text-gray-700">
+                RFC (Opcional)
+              </label>
+              <div className="mt-1 relative">
+                <input
+                  id="rfc"
+                  name="rfc"
+                  type="text"
+                  value={formData.rfc}
+                  onChange={handleInputChange}
+                  className="block w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="XAXX010101000"
+                  maxLength={13}
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Para generar facturas automáticamente (opcional)
+              </p>
+            </div>
+
+            <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Contraseña *
               </label>
@@ -239,10 +336,15 @@ export default function RegisterPage() {
           <div>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || success}
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Creando cuenta...' : 'Crear Cuenta y Comenzar Prueba'}
+              {success 
+                ? '¡Cuenta Creada! Redirigiendo...' 
+                : isLoading 
+                  ? 'Creando cuenta...' 
+                  : 'Crear Cuenta y Comenzar Prueba'
+              }
             </button>
           </div>
 
@@ -255,14 +357,6 @@ export default function RegisterPage() {
             </p>
           </div>
         </form>
-
-        {/* Demo Notice */}
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-700 text-center">
-            <strong>Demo:</strong> La funcionalidad de registro está en desarrollo.
-            Esta es una vista previa del diseño de la página.
-          </p>
-        </div>
 
         {/* Trial Info */}
         <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
