@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
 
 async function updateOCRUsageStats(schemaName: string, ocrResult: any): Promise<void> {
   try {
-    const { supabaseAdmin } = await import('@/lib/supabase/tenant-client');
+    const { supabaseAdmin } = await import('../../../../lib/supabase/tenant-client');
     
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
