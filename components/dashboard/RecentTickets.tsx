@@ -1,7 +1,7 @@
 'use client';
 
 import { FileText, CheckCircle, Clock, AlertCircle } from 'lucide-react';
-import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
+import { formatCurrency, formatDate, getStatusColor } from '../../lib/utils';
 
 interface Ticket {
   id: string;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { processTicketOCRWithRetry } from '@/lib/ocr-service';
-import { getClientSupabase, validateClientAccess } from '@/lib/supabase/tenant-client';
+import { processTicketOCRWithRetry } from '../../../../lib/ocr-service';
+import { getClientSupabase, validateClientAccess } from '../../../../lib/supabase/tenant-client';
 
 export async function POST(request: NextRequest) {
   try {
