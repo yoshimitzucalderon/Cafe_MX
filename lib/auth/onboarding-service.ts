@@ -1,4 +1,4 @@
-import { createTenantClient, supabaseAdmin, getClientBySlug } from '../supabase/tenant-client';
+import { createTenantClient, getSupabaseAdmin, getClientBySlug } from '../supabase/tenant-client';
 import { slugify } from '../utils';
 
 export interface OnboardingData {
@@ -165,12 +165,9 @@ class OnboardingService {
    */
   async getUserClientCount(userId: string): Promise<number> {
     try {
-      if (!supabaseAdmin) {
-        console.error('🚨 Supabase admin client not available');
-        return 0;
-      }
+      const admin = getSupabaseAdmin();
 
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await admin
         .from('clientes_usuarios')
         .select('cliente_id', { count: 'exact' })
         .eq('user_id', userId)

@@ -49,12 +49,35 @@ if (!supabaseAnonKey) {
 }
 
 // Server-side admin client (only create if service key is available)
-export const supabaseAdmin = supabaseServiceKey 
+export const supabaseAdmin = supabaseServiceKey
   ? createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false },
       db: { schema: 'public' }
     })
   : null;
+
+// Fallback function to get admin client with runtime check
+export function getSupabaseAdmin() {
+  if (typeof window !== 'undefined') {
+    throw new Error('Admin client should not be used on client side');
+  }
+
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!serviceKey) {
+    throw new Error('Supabase admin client is not available. Check SUPABASE_SERVICE_ROLE_KEY.');
+  }
+
+  if (!url) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL is required but not set');
+  }
+
+  return createClient(url, serviceKey, {
+    auth: { persistSession: false },
+    db: { schema: 'public' }
+  });
+}
 
 // Client-side client
 export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -139,11 +162,9 @@ export interface UserClientAccess {
 
 export async function getClientBySlug(slug: string): Promise<ClientInfo | null> {
   try {
-    if (!supabaseAdmin) {
-      throw new Error('Supabase admin client is not available. Check SUPABASE_SERVICE_ROLE_KEY.');
-    }
+    const admin = getSupabaseAdmin();
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await admin
       .from('clientes')
       .select('*')
       .eq('slug', slug)
@@ -164,11 +185,9 @@ export async function getClientBySlug(slug: string): Promise<ClientInfo | null> 
 
 export async function getUserClients(userId: string): Promise<UserClientAccess[]> {
   try {
-    if (!supabaseAdmin) {
-      throw new Error('Supabase admin client is not available. Check SUPABASE_SERVICE_ROLE_KEY.');
-    }
+    const admin = getSupabaseAdmin();
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await admin
       .from('clientes_usuarios')
       .select(`
         cliente_id,
@@ -211,11 +230,9 @@ export async function validateClientAccess(
 
     const token = authHeader.replace('Bearer ', '');
     
-    if (!supabaseAdmin) {
-      return { isValid: false, error: 'Supabase admin client is not available. Check SUPABASE_SERVICE_ROLE_KEY.' };
-    }
-    
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    const admin = getSupabaseAdmin();
+
+    const { data: { user }, error: authError } = await admin.auth.getUser(token);
     
     if (authError || !user) {
       return { isValid: false, error: 'Invalid or expired token' };
@@ -226,7 +243,7 @@ export async function validateClientAccess(
       return { isValid: false, error: 'Client not found or inactive' };
     }
 
-    const { data: accessData, error: accessError } = await supabaseAdmin
+    const { data: accessData, error: accessError } = await admin
       .from('clientes_usuarios')
       .select('rol, schema_name')
       .eq('user_id', user.id)
@@ -295,11 +312,9 @@ export async function createTenantClient({
       return { success: false, error: 'Client slug already exists' };
     }
 
-    if (!supabaseAdmin) {
-      return { success: false, error: 'Supabase admin client is not available. Check SUPABASE_SERVICE_ROLE_KEY.' };
-    }
+    const admin = getSupabaseAdmin();
 
-    const { data: existingSchema } = await supabaseAdmin
+    const { data: existingSchema } = await admin
       .from('clientes')
       .select('schema_name')
       .eq('schema_name', schema_name)
@@ -309,7 +324,7 @@ export async function createTenantClient({
       return { success: false, error: 'Schema name already exists' };
     }
 
-    const { data: newClient, error: clientError } = await supabaseAdmin
+    const { data: newClient, error: clientError } = await admin
       .from('clientes')
       .insert({
         nombre_negocio,
@@ -331,7 +346,7 @@ export async function createTenantClient({
       return { success: false, error: 'Failed to create client record' };
     }
 
-    const { error: userAccessError } = await supabaseAdmin
+    const { error: userAccessError } = await admin
       .from('clientes_usuarios')
       .insert({
         user_id: owner_user_id,
@@ -343,8 +358,8 @@ export async function createTenantClient({
 
     if (userAccessError) {
       console.error('Error creating user access:', userAccessError);
-      
-      await supabaseAdmin
+
+      await admin
         .from('clientes')
         .delete()
         .eq('id', newClient.id);
