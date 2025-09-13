@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { authService, AuthUser } from '../auth/supabase-auth';
-import { getUserClients, UserClientAccess } from '../supabase/tenant-client';
+import { getUserClientsClient, UserClientAccess } from '../supabase/tenant-client';
 
 export type AuthContextType = {
   user: User | null;
@@ -31,15 +31,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Function to refresh user clients
   const refreshUserClients = async () => {
-    if (!user?.id) {
+    if (!session?.access_token) {
       setUserClients([]);
       return;
     }
 
     try {
-      const clients = await getUserClients(user.id);
+      const clients = await getUserClientsClient(session.access_token);
       setUserClients(clients);
-      console.log(`✅ Loaded ${clients.length} client(s) for user:`, user.email);
+      console.log(`✅ Loaded ${clients.length} client(s) for user:`, user?.email);
     } catch (error) {
       console.error('🚨 Error fetching user clients:', error);
       setUserClients([]);
@@ -96,14 +96,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Refresh user clients when user changes
+  // Refresh user clients when session changes
   useEffect(() => {
-    if (user && !loading) {
+    if (session && !loading) {
       refreshUserClients();
-    } else if (!user) {
+    } else if (!session) {
       setUserClients([]);
     }
-  }, [user, loading]);
+  }, [session, loading]);
 
   const signUp = async (
     email: string, 

@@ -212,6 +212,31 @@ export async function getUserClients(userId: string): Promise<UserClientAccess[]
   }
 }
 
+// Client-side function to fetch user clients via API
+export async function getUserClientsClient(accessToken: string): Promise<UserClientAccess[]> {
+  try {
+    const response = await fetch('/api/user/clients', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      console.error('Error fetching user clients:', response.statusText);
+      return [];
+    }
+
+    const { clients } = await response.json();
+    return clients || [];
+
+  } catch (error) {
+    console.error('Exception in getUserClientsClient:', error);
+    return [];
+  }
+}
+
 export async function validateClientAccess(
   authHeader: string | null,
   clientSlug: string,
