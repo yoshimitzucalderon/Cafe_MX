@@ -1,10 +1,10 @@
 import { Suspense } from 'react';
 import { Coffee, FileText, Package, TrendingUp, AlertTriangle, DollarSign } from 'lucide-react';
-import DashboardLayout from '../../../components/dashboard/DashboardLayout';
-import StatsCard from '../../../components/dashboard/StatsCard';
-import RecentTickets from '../../../components/dashboard/RecentTickets';
-import SalesChart from '../../../components/dashboard/SalesChart';
-import LowStockAlert from '../../../components/dashboard/LowStockAlert';
+import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import StatsCard from '@/components/dashboard/StatsCard';
+import RecentTickets from '@/components/dashboard/RecentTickets';
+import SalesChart from '@/components/dashboard/SalesChart';
+import LowStockAlert from '@/components/dashboard/LowStockAlert';
 
 interface PageProps {
   params: {
