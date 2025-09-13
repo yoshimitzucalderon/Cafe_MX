@@ -17,12 +17,16 @@ export async function GET() {
 
     // Test database connection
     try {
-      const { data: dbTest, error: dbError } = await supabaseAdmin
-        .from('system_config')
-        .select('clave')
-        .limit(1);
-      
-      healthCheck.services.database = dbError ? 'unhealthy' : 'healthy';
+      if (!supabaseAdmin) {
+        healthCheck.services.database = 'unhealthy';
+      } else {
+        const { data: dbTest, error: dbError } = await supabaseAdmin
+          .from('system_config')
+          .select('clave')
+          .limit(1);
+        
+        healthCheck.services.database = dbError ? 'unhealthy' : 'healthy';
+      }
     } catch (error) {
       healthCheck.services.database = 'unhealthy';
     }
@@ -32,8 +36,12 @@ export async function GET() {
 
     // Test auth service
     try {
-      const { data: authTest, error: authError } = await supabaseAdmin.auth.getSession();
-      healthCheck.services.auth = 'healthy'; // Auth service is available
+      if (!supabaseAdmin) {
+        healthCheck.services.auth = 'unhealthy';
+      } else {
+        const { data: authTest, error: authError } = await supabaseAdmin.auth.getSession();
+        healthCheck.services.auth = 'healthy'; // Auth service is available
+      }
     } catch (error) {
       healthCheck.services.auth = 'unhealthy';
     }

@@ -364,6 +364,11 @@ export async function createTenantClient({
 
 async function createClientSchema(schemaName: string): Promise<void> {
   try {
+    // Only import fs on server-side
+    if (typeof window !== 'undefined') {
+      throw new Error('createClientSchema can only be called on the server side');
+    }
+    
     const fs = require('fs');
     const path = require('path');
     
