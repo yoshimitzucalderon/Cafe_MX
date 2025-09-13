@@ -28,6 +28,10 @@ async function loadMigrations(): Promise<Migration[]> {
 
 async function getCurrentVersion(): Promise<number> {
   try {
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not available');
+    }
+
     const { data, error } = await supabaseAdmin
       .from('system_config')
       .select('valor')
@@ -47,6 +51,10 @@ async function getCurrentVersion(): Promise<number> {
 }
 
 async function setSchemaVersion(version: number): Promise<void> {
+  if (!supabaseAdmin) {
+    throw new Error('Supabase admin client not available');
+  }
+
   const { error } = await supabaseAdmin
     .from('system_config')
     .upsert({
@@ -73,6 +81,9 @@ async function executeMigration(migration: Migration): Promise<void> {
     for (const statement of statements) {
       if (statement.includes('COMMENT ON') || statement.includes('DO $$')) {
         // Execute these as raw SQL
+        if (!supabaseAdmin) {
+          throw new Error('Supabase admin client not available');
+        }
         const { error } = await supabaseAdmin.rpc('exec_sql', { 
           sql: statement 
         });
@@ -81,6 +92,9 @@ async function executeMigration(migration: Migration): Promise<void> {
         }
       } else {
         // Execute other statements normally
+        if (!supabaseAdmin) {
+          throw new Error('Supabase admin client not available');
+        }
         const { error } = await supabaseAdmin.rpc('exec_sql', { 
           sql: statement 
         });

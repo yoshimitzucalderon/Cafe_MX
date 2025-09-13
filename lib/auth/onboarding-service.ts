@@ -165,6 +165,11 @@ class OnboardingService {
    */
   async getUserClientCount(userId: string): Promise<number> {
     try {
+      if (!supabaseAdmin) {
+        console.error('🚨 Supabase admin client not available');
+        return 0;
+      }
+
       const { data, error } = await supabaseAdmin
         .from('clientes_usuarios')
         .select('cliente_id', { count: 'exact' })
