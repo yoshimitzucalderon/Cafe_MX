@@ -1,37 +1,62 @@
 import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+// Debug environment variables
+console.log('🔍 Supabase Client Init - Environment Check:');
+console.log('URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? '✅ Set' : '❌ Missing');
+console.log('URL Value:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+console.log('Anon Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing');
+console.log('Anon Key Value:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.substring(0, 20) + '...' : 'UNDEFINED');
+console.log('Service Key:', process.env.SUPABASE_SERVICE_ROLE_KEY ? '✅ Set' : '❌ Missing');
+console.log('Service Key Value:', process.env.SUPABASE_SERVICE_ROLE_KEY ? process.env.SUPABASE_SERVICE_ROLE_KEY.substring(0, 20) + '...' : 'UNDEFINED');
+console.log('Is Server:', typeof window === 'undefined');
+
 if (typeof window === 'undefined') {
   // Server-side checks
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    console.error('❌ Server: Missing NEXT_PUBLIC_SUPABASE_URL');
     throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_URL');
   }
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('❌ Server: Missing SUPABASE_SERVICE_ROLE_KEY');
     throw new Error('Missing env.SUPABASE_SERVICE_ROLE_KEY');
   }
 } else {
   // Client-side checks
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    console.error('Missing env.NEXT_PUBLIC_SUPABASE_URL - Authentication will not work');
+    console.error('❌ Client: Missing NEXT_PUBLIC_SUPABASE_URL - Authentication will not work');
     throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_URL');
   }
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    console.error('Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY - Authentication will not work');
+    console.error('❌ Client: Missing NEXT_PUBLIC_SUPABASE_ANON_KEY - Authentication will not work');
     throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY');
   }
 }
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// Validate environment variables before creating clients
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: { persistSession: false },
-  db: { schema: 'public' }
-});
+if (!supabaseUrl) {
+  throw new Error('NEXT_PUBLIC_SUPABASE_URL is required but not set');
+}
 
+if (!supabaseAnonKey) {
+  throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY is required but not set');
+}
+
+// Server-side admin client (only create if service key is available)
+export const supabaseAdmin = supabaseServiceKey 
+  ? createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { persistSession: false },
+      db: { schema: 'public' }
+    })
+  : null;
+
+// Client-side client
 export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: { persistSession: true },
   db: { schema: 'public' }
@@ -46,6 +71,10 @@ export function getClientSupabase(schemaName: string): any {
   
   if (!schemaName.startsWith('cliente_')) {
     throw new Error('Invalid schema name format. Must start with "cliente_"');
+  }
+
+  if (!supabaseServiceKey) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for tenant client access');
   }
 
   const cacheKey = `tenant_${schemaName}`;
@@ -70,7 +99,10 @@ export function getClientSupabase(schemaName: string): any {
 
 export function getUserSupabase(schemaName?: string): any {
   if (schemaName) {
-    return createClient(supabaseUrl, supabaseAnonKey!, {
+    if (!supabaseAnonKey) {
+      throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY is required for user client access');
+    }
+    return createClient(supabaseUrl, supabaseAnonKey, {
       db: { schema: schemaName },
       auth: { persistSession: true },
       global: {
@@ -107,6 +139,10 @@ export interface UserClientAccess {
 
 export async function getClientBySlug(slug: string): Promise<ClientInfo | null> {
   try {
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client is not available. Check SUPABASE_SERVICE_ROLE_KEY.');
+    }
+
     const { data, error } = await supabaseAdmin
       .from('clientes')
       .select('*')
@@ -128,6 +164,10 @@ export async function getClientBySlug(slug: string): Promise<ClientInfo | null> 
 
 export async function getUserClients(userId: string): Promise<UserClientAccess[]> {
   try {
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client is not available. Check SUPABASE_SERVICE_ROLE_KEY.');
+    }
+
     const { data, error } = await supabaseAdmin
       .from('clientes_usuarios')
       .select(`
@@ -170,6 +210,10 @@ export async function validateClientAccess(
     }
 
     const token = authHeader.replace('Bearer ', '');
+    
+    if (!supabaseAdmin) {
+      return { isValid: false, error: 'Supabase admin client is not available. Check SUPABASE_SERVICE_ROLE_KEY.' };
+    }
     
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     
@@ -251,6 +295,10 @@ export async function createTenantClient({
       return { success: false, error: 'Client slug already exists' };
     }
 
+    if (!supabaseAdmin) {
+      return { success: false, error: 'Supabase admin client is not available. Check SUPABASE_SERVICE_ROLE_KEY.' };
+    }
+
     const { data: existingSchema } = await supabaseAdmin
       .from('clientes')
       .select('schema_name')
@@ -326,6 +374,10 @@ async function createClientSchema(schemaName: string): Promise<void> {
     
     sqlTemplate = sqlTemplate.replace(/{SCHEMA}/g, schemaName);
     sqlTemplate = sqlTemplate.replace(/{SCHEMA_SAFE}/g, schemaSafe);
+    
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client is not available. Check SUPABASE_SERVICE_ROLE_KEY.');
+    }
     
     const { error } = await supabaseAdmin.rpc('exec_sql', { sql: sqlTemplate });
     
