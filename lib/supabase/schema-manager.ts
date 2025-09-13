@@ -1,12 +1,16 @@
 // Server-side only schema management utilities
 // This file is separated to avoid client-side bundle issues with fs module
 
-import 'server-only';
 import { supabaseAdmin } from './tenant-client';
 
 export async function createClientSchema(schemaName: string): Promise<void> {
   try {
-    // Dynamic imports to avoid bundling issues
+    // Only available on server-side
+    if (typeof window !== 'undefined') {
+      throw new Error('createClientSchema can only be called on the server side');
+    }
+
+    // These modules are only available server-side
     const fs = require('fs');
     const path = require('path');
     
