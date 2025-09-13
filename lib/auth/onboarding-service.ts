@@ -41,12 +41,23 @@ class OnboardingService {
   async completeOnboarding(data: OnboardingData): Promise<OnboardingResult> {
     try {
       console.log('🚀 Starting onboarding for:', data.businessName);
+      console.log('📋 Onboarding data:', {
+        userId: data.userId,
+        email: data.email,
+        businessName: data.businessName,
+        hasPhone: !!data.phone,
+        hasRFC: !!data.rfc,
+        plan: data.plan || 'basic'
+      });
 
       // Step 1: Generate unique slug
+      console.log('🔤 Generating unique slug...');
       const slug = await this.generateUniqueSlug(data.businessName);
       if (!slug) {
+        console.log('❌ Failed to generate unique slug');
         return { success: false, error: 'No se pudo generar un identificador único para la cafetería' };
       }
+      console.log('✅ Generated slug:', slug);
 
       // Step 2: Create tenant client
       console.log(`📝 Creating tenant client with slug: ${slug}`);
@@ -59,17 +70,28 @@ class OnboardingService {
         plan: data.plan || 'basic'
       });
 
+      console.log('📤 CreateTenantClient result:', {
+        success: result.success,
+        hasClient: !!result.client,
+        error: result.error
+      });
+
       if (!result.success || !result.client) {
-        return { 
-          success: false, 
-          error: result.error || 'Error al crear la cafetería en el sistema' 
+        console.log('❌ Failed to create tenant client:', result.error);
+        return {
+          success: false,
+          error: result.error || 'Error al crear la cafetería en el sistema'
         };
       }
 
       // Step 3: Setup initial data (if needed)
+      console.log('🔧 Setting up initial tenant data...');
       await this.setupInitialTenantData(result.client.schema_name);
 
       console.log('✅ Onboarding completed successfully for:', slug);
+
+      const dashboardUrl = this.getDashboardUrl(slug);
+      console.log('🔗 Dashboard URL:', dashboardUrl);
 
       return {
         success: true,
@@ -78,12 +100,13 @@ class OnboardingService {
           nombre_negocio: result.client.nombre_negocio,
           slug: result.client.slug,
           schema_name: result.client.schema_name,
-          dashboard_url: this.getDashboardUrl(slug)
+          dashboard_url: dashboardUrl
         }
       };
 
     } catch (error) {
       console.error('🚨 Onboarding error:', error);
+      console.error('🚨 Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Error desconocido durante el registro'
