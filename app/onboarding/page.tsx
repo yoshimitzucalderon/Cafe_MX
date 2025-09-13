@@ -5,15 +5,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Coffee, Building2, CheckCircle, AlertCircle, ArrowRight, Loader } from 'lucide-react';
 import { useAuth } from '../../lib/hooks/useAuth';
-import { onboardingService } from '../../lib/auth/onboarding-service';
+import { useOnboarding } from '../../lib/hooks/useOnboarding';
 
 export default function OnboardingPage() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [createdClient, setCreatedClient] = useState<any>(null);
-  
+
   const { user, loading } = useAuth();
+  const { isLoading, error, completeOnboarding, checkNeedsOnboarding } = useOnboarding();
   const router = useRouter();
 
   // Check if user is authenticated
@@ -27,10 +26,10 @@ export default function OnboardingPage() {
   useEffect(() => {
     const checkExistingClients = async () => {
       if (!user) return;
-      
+
       try {
-        const needsOnboarding = await onboardingService.needsOnboarding(user.id);
-        if (!needsOnboarding) {
+        const result = await checkNeedsOnboarding();
+        if (!result.needsOnboarding && !result.error) {
           // User already has clients, redirect to dashboard
           router.push('/dashboard');
         }
@@ -42,41 +41,27 @@ export default function OnboardingPage() {
     if (user) {
       checkExistingClients();
     }
-  }, [user, router]);
+  }, [user, router, checkNeedsOnboarding]);
 
   const handleCompleteOnboarding = async () => {
     if (!user) return;
 
-    setIsLoading(true);
-    setError(null);
+    console.log('🚀 Starting onboarding process for user:', user.email);
+
+    // Get business data from user metadata
+    const businessName = user.user_metadata?.business_name;
+    const fullName = user.user_metadata?.full_name;
+
+    if (!businessName || !fullName) {
+      console.error('Información de registro incompleta');
+      return;
+    }
 
     try {
-      console.log('🚀 Starting onboarding process for user:', user.email);
-
-      // Get business data from user metadata
-      const businessName = user.user_metadata?.business_name;
-      const fullName = user.user_metadata?.full_name;
-      const phone = user.user_metadata?.phone;
-
-      if (!businessName || !fullName) {
-        setError('Información de registro incompleta. Por favor, contacta soporte.');
-        setIsLoading(false);
-        return;
-      }
-
-      // Complete onboarding
-      const result = await onboardingService.completeOnboarding({
-        userId: user.id,
-        email: user.email!,
-        fullName: fullName,
-        businessName: businessName,
-        phone: phone,
-        plan: 'basic'
-      });
+      const result = await completeOnboarding();
 
       if (!result.success || !result.client) {
-        setError(result.error || 'Error al crear la cafetería');
-        setIsLoading(false);
+        console.error('Onboarding failed:', result.error);
         return;
       }
 
@@ -91,8 +76,6 @@ export default function OnboardingPage() {
 
     } catch (error) {
       console.error('🚨 Onboarding error:', error);
-      setError(error instanceof Error ? error.message : 'Error desconocido durante la configuración');
-      setIsLoading(false);
     }
   };
 
