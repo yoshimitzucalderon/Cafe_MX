@@ -125,6 +125,11 @@ async function updateOCRUsageStats(schemaName: string, ocrResult: any): Promise<
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const costPerRequest = 0.003;
 
+    if (!supabaseAdmin) {
+      console.warn('❌ Supabase admin client not available, skipping OCR usage stats');
+      return;
+    }
+
     const { data: cliente } = await supabaseAdmin
       .from('clientes')
       .select('id')
