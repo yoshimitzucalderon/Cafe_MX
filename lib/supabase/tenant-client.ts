@@ -368,9 +368,11 @@ export async function createTenantClient({
     }
 
     // Create schema only on server side
+    // TODO: Temporarily disabled schema creation until exec_sql function is available
     if (typeof window === 'undefined') {
-      const { createClientSchema } = await import('./schema-manager');
-      await createClientSchema(schema_name);
+      console.log(`⚠️  Schema creation skipped for ${schema_name} - exec_sql function not available`);
+      // const { createClientSchema } = await import('./schema-manager');
+      // await createClientSchema(schema_name);
     }
 
     return { success: true, client: newClient };

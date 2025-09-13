@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Coffee, Eye, EyeOff, Mail, Lock, User, Building2, Phone, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../../lib/hooks/useAuth';
-import { onboardingService } from '../../../lib/auth/onboarding-service';
+import { validateBusinessName, validateRFC, validateFullName, validateEmail, validatePassword, validatePhone } from '../../../lib/utils/validation';
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -53,22 +53,48 @@ export default function RegisterPage() {
         return;
       }
 
-      // Validate business name
-      const businessValidation = onboardingService.validateBusinessName(formData.businessName);
+      // Client-side validation
+      const emailValidation = validateEmail(formData.email);
+      if (!emailValidation.valid) {
+        setError(emailValidation.error!);
+        setIsLoading(false);
+        return;
+      }
+
+      const passwordValidation = validatePassword(formData.password);
+      if (!passwordValidation.valid) {
+        setError(passwordValidation.error!);
+        setIsLoading(false);
+        return;
+      }
+
+      const nameValidation = validateFullName(formData.ownerName);
+      if (!nameValidation.valid) {
+        setError(nameValidation.error!);
+        setIsLoading(false);
+        return;
+      }
+
+      const businessValidation = validateBusinessName(formData.businessName);
       if (!businessValidation.valid) {
         setError(businessValidation.error!);
         setIsLoading(false);
         return;
       }
 
+      const phoneValidation = validatePhone(formData.phone);
+      if (!phoneValidation.valid) {
+        setError(phoneValidation.error!);
+        setIsLoading(false);
+        return;
+      }
+
       // Validate RFC if provided
-      if (formData.rfc) {
-        const rfcValidation = onboardingService.validateRFC(formData.rfc);
-        if (!rfcValidation.valid) {
-          setError(rfcValidation.error!);
-          setIsLoading(false);
-          return;
-        }
+      const rfcValidation = validateRFC(formData.rfc);
+      if (!rfcValidation.valid) {
+        setError(rfcValidation.error!);
+        setIsLoading(false);
+        return;
       }
 
       console.log('🚀 Starting registration process...');

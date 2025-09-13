@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Coffee, Eye, EyeOff, Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../../lib/hooks/useAuth';
-import { onboardingService } from '../../../lib/auth/onboarding-service';
+import { useOnboarding } from '../../../lib/hooks/useOnboarding';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   
   const { signIn, user, loading } = useAuth();
+  const { checkNeedsOnboarding } = useOnboarding();
   const router = useRouter();
 
   // Redirect if already logged in
@@ -30,9 +31,9 @@ export default function LoginPage() {
 
     try {
       // Check if user needs onboarding
-      const needsOnboarding = await onboardingService.needsOnboarding(user.id);
-      
-      if (needsOnboarding) {
+      const result = await checkNeedsOnboarding();
+
+      if (result.needsOnboarding) {
         router.push('/onboarding');
       } else {
         // User has existing clients, redirect to their first client or client selector

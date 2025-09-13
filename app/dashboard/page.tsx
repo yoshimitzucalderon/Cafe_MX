@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Coffee, Loader, Building2, ArrowRight, Plus, User, LogOut } from 'lucide-react';
 import { useAuth } from '../../lib/hooks/useAuth';
-import { onboardingService } from '../../lib/auth/onboarding-service';
+import { useOnboarding } from '../../lib/hooks/useOnboarding';
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   const { user, userClients, loading, signOut, refreshUserClients } = useAuth();
+  const { checkNeedsOnboarding } = useOnboarding();
   const router = useRouter();
 
   useEffect(() => {
@@ -30,9 +31,9 @@ export default function DashboardPage() {
         await refreshUserClients();
 
         // Check if user needs onboarding
-        const needsOnboarding = await onboardingService.needsOnboarding(user.id);
-        
-        if (needsOnboarding) {
+        const onboardingResult = await checkNeedsOnboarding();
+
+        if (onboardingResult.needsOnboarding) {
           router.push('/onboarding');
           return;
         }

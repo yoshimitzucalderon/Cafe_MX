@@ -1,7 +1,7 @@
 // Server-side only schema management utilities
 // This file is separated to avoid client-side bundle issues with fs module
 
-import { supabaseAdmin } from './tenant-client';
+import { getSupabaseAdmin } from './tenant-client';
 
 export async function createClientSchema(schemaName: string): Promise<void> {
   try {
@@ -22,11 +22,9 @@ export async function createClientSchema(schemaName: string): Promise<void> {
     sqlTemplate = sqlTemplate.replace(/{SCHEMA}/g, schemaName);
     sqlTemplate = sqlTemplate.replace(/{SCHEMA_SAFE}/g, schemaSafe);
     
-    if (!supabaseAdmin) {
-      throw new Error('Supabase admin client is not available. Check SUPABASE_SERVICE_ROLE_KEY.');
-    }
-    
-    const { error } = await supabaseAdmin.rpc('exec_sql', { sql: sqlTemplate });
+    const admin = getSupabaseAdmin();
+
+    const { error } = await admin.rpc('exec_sql', { sql: sqlTemplate });
     
     if (error) {
       console.error('Error creating client schema:', error);
