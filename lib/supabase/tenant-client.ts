@@ -352,9 +352,11 @@ export async function createTenantClient({
       return { success: false, error: 'Failed to assign owner access' };
     }
 
-    // Import schema manager dynamically to avoid client-side issues
-    const { createClientSchema } = await import('./schema-manager');
-    await createClientSchema(schema_name);
+    // Create schema only on server side
+    if (typeof window === 'undefined') {
+      const { createClientSchema } = await import('./schema-manager');
+      await createClientSchema(schema_name);
+    }
 
     return { success: true, client: newClient };
 

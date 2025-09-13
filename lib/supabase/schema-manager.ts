@@ -1,17 +1,14 @@
 // Server-side only schema management utilities
 // This file is separated to avoid client-side bundle issues with fs module
 
+import 'server-only';
 import { supabaseAdmin } from './tenant-client';
 
 export async function createClientSchema(schemaName: string): Promise<void> {
   try {
-    // This function should only be called on the server side
-    if (typeof window !== 'undefined') {
-      throw new Error('createClientSchema can only be called on the server side');
-    }
-
-    const fs = await import('fs');
-    const path = await import('path');
+    // Dynamic imports to avoid bundling issues
+    const fs = require('fs');
+    const path = require('path');
     
     const templatePath = path.join(process.cwd(), 'lib', 'migrations', '002-client-schema-template.sql');
     let sqlTemplate = fs.readFileSync(templatePath, 'utf8');
