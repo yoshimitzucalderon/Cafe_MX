@@ -79,7 +79,6 @@ async function handleSupabaseProxy(
 
     console.log('🔄 Proxying to:', supabaseUrl);
     console.log('📦 Method:', request.method);
-    console.log('🔑 Headers:', JSON.stringify(headers, null, 2));
 
     const headers: Record<string, string> = {};
 
@@ -103,6 +102,8 @@ async function handleSupabaseProxy(
     if (!headers.apikey && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       headers.apikey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     }
+
+    console.log('🔑 Headers:', JSON.stringify(headers, null, 2));
 
     const fetchOptions: RequestInit = {
       method: request.method,
