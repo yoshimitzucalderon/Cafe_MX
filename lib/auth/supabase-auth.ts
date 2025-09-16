@@ -1,4 +1,4 @@
-import { supabaseClient } from '../supabase/tenant-client';
+import { supabaseFallbackClient } from '../supabase/client-fallback';
 
 export type AuthUser = {
   id: string;
@@ -35,7 +35,7 @@ export type SignInData = {
 };
 
 export class SupabaseAuthService {
-  private client = supabaseClient;
+  private client = supabaseFallbackClient;
 
   async signUp(data: SignUpData) {
     try {

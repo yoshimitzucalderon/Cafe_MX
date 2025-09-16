@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Coffee, Eye, EyeOff, Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../../lib/hooks/useAuth';
 import { useOnboarding } from '../../../lib/hooks/useOnboarding';
+import { useSessionMonitor } from '../../../lib/hooks/useSessionMonitor';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -14,9 +15,20 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const { signIn, user, loading } = useAuth();
+  const { signIn, user, loading, session } = useAuth();
   const { checkNeedsOnboarding } = useOnboarding();
   const router = useRouter();
+
+  // Monitor session health
+  const { sessionExpiresAt, sessionValid } = useSessionMonitor({
+    onSessionExpiringSoon: () => {
+      console.warn('🚨 Session expiring soon!');
+    },
+    onSessionExpired: () => {
+      console.error('❌ Session expired!');
+      setError('Tu sesión ha expirado. Por favor inicia sesión nuevamente.');
+    }
+  });
 
   // Redirect if already logged in
   useEffect(() => {
@@ -96,6 +108,18 @@ export default function LoginPage() {
             <div className="flex items-center">
               <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
               <p className="text-sm text-red-800">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Debug Info - Solo en desarrollo */}
+        {process.env.NODE_ENV === 'development' && user && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="text-sm">
+              <p><strong>👤 Usuario:</strong> {user.email}</p>
+              <p><strong>🕐 Sesión expira:</strong> {sessionExpiresAt?.toLocaleString() || 'No disponible'}</p>
+              <p><strong>✅ Sesión válida:</strong> {sessionValid ? 'Sí' : 'No'}</p>
+              <p><strong>🔑 Token presente:</strong> {session?.access_token ? 'Sí' : 'No'}</p>
             </div>
           </div>
         )}

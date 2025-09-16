@@ -75,16 +75,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = authService.onAuthStateChange(
       async (event, session) => {
-        console.log('🔄 Auth state changed:', event);
-        
+        console.log('🔄 Auth state changed:', event, session?.user?.email);
+
         if (mounted) {
           setSession(session);
           setUser(session?.user ?? null);
           setLoading(false);
 
-          // Clear or refresh user clients based on auth state
+          // Handle different auth events
           if (event === 'SIGNED_OUT') {
+            console.log('👋 User signed out, clearing clients');
             setUserClients([]);
+          } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            console.log('✅ User authenticated, session valid until:', session?.expires_at);
+          } else if (event === 'PASSWORD_RECOVERY') {
+            console.log('🔑 Password recovery initiated');
           }
         }
       }

@@ -79,10 +79,20 @@ export function getSupabaseAdmin() {
   });
 }
 
-// Client-side client
+// Client-side client with improved session handling
 export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: { persistSession: true },
-  db: { schema: 'public' }
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce'
+  },
+  db: { schema: 'public' },
+  global: {
+    headers: {
+      'X-Client-Info': 'cafemx-client'
+    }
+  }
 });
 
 const clientCache = new Map<string, any>();

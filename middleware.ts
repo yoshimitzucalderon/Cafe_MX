@@ -4,8 +4,21 @@ import type { NextRequest } from 'next/server';
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
   const hostname = request.headers.get('host') || '';
-  
+
   console.log(`🌐 Middleware processing: ${hostname}${url.pathname}`);
+
+  // Handle CORS for all API requests
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, apikey, X-Client-Info',
+        'Access-Control-Max-Age': '86400',
+      },
+    });
+  }
 
   const isLocalhost = hostname.includes('localhost') || hostname.includes('127.0.0.1');
   const isVercelApp = hostname.includes('vercel.app');

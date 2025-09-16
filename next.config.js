@@ -28,6 +28,11 @@ const nextConfig = {
         source: '/admin/:path*',
         destination: '/admin/:path*',
       },
+      // Proxy Supabase auth requests
+      {
+        source: '/supabase/auth/:path*',
+        destination: '/api/supabase/auth/:path*',
+      },
     ];
   },
   async headers() {
