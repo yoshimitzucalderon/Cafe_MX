@@ -64,11 +64,22 @@ async function handleSupabaseProxy(
       );
     }
 
+    // Construir la URL correcta para Supabase
     const path = pathSegments.join('/');
     const url = new URL(request.url);
-    const supabaseUrl = `${SUPABASE_URL}/auth/v1/${path}${url.search}`;
+
+    // Para auth endpoints, usar el path completo
+    let supabaseUrl: string;
+    if (path.includes('token') || path.includes('signup') || path.includes('user') || path.includes('session')) {
+      supabaseUrl = `${SUPABASE_URL}/auth/v1/${path}${url.search}`;
+    } else {
+      // Para otros endpoints
+      supabaseUrl = `${SUPABASE_URL}/${path}${url.search}`;
+    }
 
     console.log('🔄 Proxying to:', supabaseUrl);
+    console.log('📦 Method:', request.method);
+    console.log('🔑 Headers:', JSON.stringify(headers, null, 2));
 
     const headers: Record<string, string> = {};
 

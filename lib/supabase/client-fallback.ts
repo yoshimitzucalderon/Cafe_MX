@@ -1,73 +1,43 @@
 import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { ENV, getSupabaseUrl, shouldUseProxy } from '../config/environment';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrl = ENV.SUPABASE_URL;
+const supabaseAnonKey = ENV.SUPABASE_ANON_KEY;
 
 console.log('🔧 Fallback client configuration:');
 console.log('URL:', supabaseUrl ? '✅' : '❌');
 console.log('Key:', supabaseAnonKey ? '✅' : '❌');
+console.log('Should use proxy:', shouldUseProxy());
 
 // Cliente con configuración mejorada para evitar CORS
-export const supabaseFallbackClient = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce',
-    // Configuración más permisiva para CORS
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-    storageKey: 'sb-auth-token',
-  },
-  db: {
-    schema: 'public'
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'cafemx-fallback',
-      'Access-Control-Allow-Origin': '*',
+const createSupabaseClient = () => {
+  const clientUrl = getSupabaseUrl();
+
+  console.log(`🔧 Creating Supabase client with URL: ${clientUrl}`);
+  console.log(`🔄 Using proxy: ${shouldUseProxy()}`);
+
+  return createClient(clientUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      storageKey: 'sb-auth-token',
     },
-    fetch: async (url, options = {}) => {
-      // Custom fetch con manejo de CORS mejorado
-      const customOptions = {
-        ...options,
-        headers: {
-          ...options.headers,
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, apikey, X-Client-Info',
-        },
-        mode: 'cors' as RequestMode,
-        credentials: 'omit' as RequestCredentials,
-      };
-
-      console.log('🌐 Fallback fetch to:', url);
-
-      try {
-        const response = await fetch(url, customOptions);
-        console.log('📡 Response status:', response.status);
-        return response;
-      } catch (error) {
-        console.error('❌ Fallback fetch error:', error);
-
-        // Si falla, intentar con proxy local
-        if (typeof window !== 'undefined' && url.toString().includes(supabaseUrl)) {
-          const proxyUrl = url.toString().replace(supabaseUrl, `${window.location.origin}/api/supabase`);
-          console.log('🔄 Trying proxy URL:', proxyUrl);
-
-          try {
-            return await fetch(proxyUrl, customOptions);
-          } catch (proxyError) {
-            console.error('❌ Proxy fetch also failed:', proxyError);
-            throw error; // Throw original error
-          }
-        }
-
-        throw error;
+    db: {
+      schema: 'public'
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'cafemx-fallback',
       }
     }
-  }
-});
+  });
+};
+
+export const supabaseFallbackClient = createSupabaseClient();
 
 // Función para testear la conexión
 export async function testSupabaseConnection(): Promise<{
@@ -126,4 +96,44 @@ export async function testSupabaseConnection(): Promise<{
   }
 }
 
+// Re-export for convenience
 export default supabaseFallbackClient;
+
+// Función auxiliar para obtener un cliente con configuración específica
+export function getConfiguredSupabaseClient(forceProxy = false) {
+  if (forceProxy && typeof window !== 'undefined') {
+    console.log('🔄 Creating forced proxy client');
+    return createClient(
+      `${window.location.origin}/api/supabase`,
+      supabaseAnonKey,
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          flowType: 'pkce',
+          storage: window.localStorage,
+          storageKey: 'sb-auth-token',
+        },
+        db: { schema: 'public' },
+        global: {
+          headers: {
+            'X-Client-Info': 'cafemx-proxy',
+          }
+        }
+      }
+    );
+  }
+
+  return supabaseFallbackClient;
+}
+
+// Función para verificar conectividad
+export async function checkSupabaseConnection(): Promise<boolean> {
+  try {
+    const { error } = await supabaseFallbackClient.auth.getSession();
+    return !error;
+  } catch {
+    return false;
+  }
+}
