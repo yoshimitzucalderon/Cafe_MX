@@ -57,7 +57,12 @@ async function handleSupabaseProxy(
   pathSegments: string[]
 ) {
   try {
+    console.log('🚀 === PROXY REQUEST START ===');
+    console.log('🔍 Original URL:', request.url);
+    console.log('📍 Path segments:', pathSegments);
+
     if (!SUPABASE_URL) {
+      console.error('❌ SUPABASE_URL not configured');
       return NextResponse.json(
         { error: 'Supabase URL not configured' },
         { status: 500 }
@@ -66,19 +71,13 @@ async function handleSupabaseProxy(
 
     // Construir la URL correcta para Supabase
     const path = pathSegments.join('/');
-    const url = new URL(request.url);
 
-    // Para auth endpoints, usar el path completo
-    let supabaseUrl: string;
-    if (path.includes('token') || path.includes('signup') || path.includes('user') || path.includes('session')) {
-      supabaseUrl = `${SUPABASE_URL}/auth/v1/${path}${url.search}`;
-    } else {
-      // Para otros endpoints
-      supabaseUrl = `${SUPABASE_URL}/${path}${url.search}`;
-    }
+    const url = new URL(request.url);
+    const supabaseUrl = `${SUPABASE_URL}/${path}${url.search}`;
 
     console.log('🔄 Proxying to:', supabaseUrl);
     console.log('📦 Method:', request.method);
+    console.log('🌐 SUPABASE_URL:', SUPABASE_URL);
 
     const headers: Record<string, string> = {};
 
@@ -124,14 +123,23 @@ async function handleSupabaseProxy(
 
     const response = await fetch(supabaseUrl, fetchOptions);
 
+    console.log('📥 Response status:', response.status);
+    console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+
     const responseText = await response.text();
+    console.log('📥 Response text (first 200 chars):', responseText.substring(0, 200));
+
     let responseData;
 
     try {
       responseData = JSON.parse(responseText);
+      console.log('✅ Response parsed as JSON');
     } catch {
       responseData = responseText;
+      console.log('⚠️ Response is not JSON, returning as text');
     }
+
+    console.log('🚀 === PROXY REQUEST END ===');
 
     return new NextResponse(
       typeof responseData === 'string' ? responseData : JSON.stringify(responseData),

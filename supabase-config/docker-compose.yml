@@ -1,0 +1,136 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: your_postgres_password
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Supabase Auth Service
+  auth:
+    image: supabase/gotrue:latest
+    restart: unless-stopped
+    ports:
+      - "9999:9999"
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      GOTRUE_SITE_URL: https://supabase.ycm360.com
+      GOTRUE_URI_ALLOW_LIST: https://ycm360.com,http://localhost:3000,http://localhost:3001
+      GOTRUE_DISABLE_SIGNUP: false
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_SECRET: "your-super-secret-jwt-token-min-32-chars-long"
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_DB_DRIVER: postgres
+      DATABASE_URL: "postgres://postgres:your_postgres_password@db:5432/postgres?sslmode=disable"
+
+      # Email configuration (using SMTP)
+      GOTRUE_SMTP_HOST: smtp.gmail.com
+      GOTRUE_SMTP_PORT: 587
+      GOTRUE_SMTP_USER: your-email@gmail.com
+      GOTRUE_SMTP_PASS: your-app-password
+      GOTRUE_SMTP_ADMIN_EMAIL: admin@ycm360.com
+      GOTRUE_MAILER_SUBJECTS_CONFIRMATION: "Confirma tu email para CafeMX"
+      GOTRUE_MAILER_SUBJECTS_RECOVERY: "Restablece tu contraseña de CafeMX"
+      GOTRUE_MAILER_SUBJECTS_INVITE: "Has sido invitado a CafeMX"
+
+      # External OAuth providers (optional)
+      GOTRUE_EXTERNAL_GOOGLE_ENABLED: false
+      GOTRUE_EXTERNAL_GITHUB_ENABLED: false
+    depends_on:
+      - db
+
+  # PostgREST - RESTful API
+  rest:
+    image: postgrest/postgrest:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PGRST_DB_URI: "postgres://postgres:your_postgres_password@db:5432/postgres"
+      PGRST_DB_SCHEMA: public,storage,auth
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: "your-super-secret-jwt-token-min-32-chars-long"
+      PGRST_DB_USE_LEGACY_GUCS: false
+    depends_on:
+      - db
+      - auth
+
+  # Realtime Service
+  realtime:
+    image: supabase/realtime:latest
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: your_postgres_password
+      DB_NAME: postgres
+      DB_SSL: false
+      PORT: 4000
+      JWT_SECRET: "your-super-secret-jwt-token-min-32-chars-long"
+      REPLICATION_MODE: RLS
+      SECURE_CHANNELS: true
+      SLOT_NAME: realtime_slot
+      TEMPORARY_SLOT: true
+    depends_on:
+      - db
+
+  # Storage Service
+  storage:
+    image: supabase/storage-api:latest
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      JWT_SECRET: "your-super-secret-jwt-token-min-32-chars-long"
+      DATABASE_URL: "postgres://postgres:your_postgres_password@db:5432/postgres"
+      PGRST_JWT_SECRET: "your-super-secret-jwt-token-min-32-chars-long"
+      ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzU3NzQyOTcxLCJleHAiOjE5MTU0MjI5NzF9.KGlAaVNGKwAz_s_f102zrqTKmeEL-Xm09kMKEoTH_qw
+      SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTc3NDI5NzEsImV4cCI6MTkxNTQyMjk3MX0.vGarszHoycKKOjRjktk_NScacq4gAhwsZai4nnw6NfM
+      REGION: us-east-1
+      GLOBAL_S3_BUCKET: supabase-storage
+    volumes:
+      - storage_data:/var/lib/storage
+    depends_on:
+      - db
+      - rest
+
+  # Kong API Gateway - Main entry point
+  kong:
+    image: kong:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000" # HTTP
+      - "8443:8443" # HTTPS
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+    volumes:
+      - ./kong.yml:/var/lib/kong/kong.yml:ro
+    depends_on:
+      - auth
+      - rest
+      - realtime
+      - storage
+
+volumes:
+  postgres_data:
+  storage_data:

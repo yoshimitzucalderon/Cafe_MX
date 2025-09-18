@@ -1,0 +1,83 @@
+_format_version: "3.0"
+
+services:
+  # Auth Service
+  - name: auth-service
+    url: http://auth:9999
+    routes:
+      - name: auth-route
+        paths:
+          - /auth/v1
+        strip_path: true
+
+  # REST API Service
+  - name: rest-service
+    url: http://rest:3000
+    routes:
+      - name: rest-route
+        paths:
+          - /rest/v1
+        strip_path: true
+
+  # Realtime Service
+  - name: realtime-service
+    url: http://realtime:4000
+    routes:
+      - name: realtime-route
+        paths:
+          - /realtime/v1
+        strip_path: true
+
+  # Storage Service
+  - name: storage-service
+    url: http://storage:5000
+    routes:
+      - name: storage-route
+        paths:
+          - /storage/v1
+        strip_path: true
+
+plugins:
+  # CORS Plugin
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - HEAD
+        - PUT
+        - PATCH
+        - POST
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Accept-Version
+        - Authorization
+        - Content-Length
+        - Content-MD5
+        - Content-Type
+        - Date
+        - X-Auth-Token
+        - X-Requested-With
+        - apikey
+        - x-client-info
+      exposed_headers:
+        - X-Auth-Token
+        - Authorization
+      max_age: 3600
+      credentials: true
+
+  # Request size limiting
+  - name: request-size-limiting
+    config:
+      allowed_payload_size: 10
+      size_unit: megabytes
+      require_content_length: false
+
+  # Rate limiting
+  - name: rate-limiting
+    config:
+      minute: 60
+      policy: local

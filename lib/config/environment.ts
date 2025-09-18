@@ -39,24 +39,13 @@ export function shouldUseProxy(): boolean {
     return false;
   }
 
-  // En Vercel, siempre usar proxy para evitar CORS
-  if (window.location.hostname.includes('vercel.app')) {
-    return true;
-  }
-
-  // En localhost, no necesita proxy
+  // En localhost, usar proxy para evitar CORS hasta que se configure SSL/CORS
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return false;
-  }
-
-  // En dominio personalizado, verificar si es necesario
-  if (window.location.hostname.includes('ycm360.com')) {
-    // Tu dominio personalizado - ajustar según sea necesario
     return true;
   }
 
-  // Por defecto, usar proxy para seguridad
-  return true;
+  // Por defecto, no usar proxy
+  return false;
 }
 
 // Función para obtener la URL de Supabase correcta

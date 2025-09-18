@@ -16,7 +16,17 @@
       "Bash(npx tsc:*)",
       "Bash(curl:*)",
       "WebFetch(domain:supabase.ycm360.com)",
-      "Bash(supabase:*)"
+      "Bash(supabase:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd //c:*)",
+      "Bash(npm start)",
+      "Bash(tasklist)",
+      "Bash(mv:*)",
+      "Bash(rm:*)",
+      "Bash(mkdir:*)",
+      "Bash(sed:*)"
     ],
     "deny": [],
     "ask": []

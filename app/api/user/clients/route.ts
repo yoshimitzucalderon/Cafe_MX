@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getUserClients } from '@/lib/supabase/tenant-client';
 import { getSupabaseAdmin } from '@/lib/supabase/tenant-client';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     // Get the authorization header
