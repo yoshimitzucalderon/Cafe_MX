@@ -123,6 +123,12 @@ temp/
 supabase/.branches
 supabase/.temp
 
+# Supabase configuration files with secrets
+supabase-config/setup.ps1
+supabase-config/setup.sh
+supabase-config/.env
+supabase-config/*.env
+
 # Custom
 /public/uploads
 /storage

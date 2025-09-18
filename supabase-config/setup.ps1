@@ -56,9 +56,9 @@ SMTP_USER=your-email@gmail.com
 SMTP_PASS=your-app-password
 SMTP_ADMIN_EMAIL=admin@ycm360.com
 
-# Anon and Service Keys
-ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzU3NzQyOTcxLCJleHAiOjE5MTU0MjI5NzF9.KGlAaVNGKwAz_s_f102zrqTKmeEL-Xm09kMKEoTH_qw
-SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTc3NDI5NzEsImV4cCI6MTkxNTQMjk3MX0.vGarszHoycKKOjRjktk_NScacq4gAhwsZai4nnw6NfM
+# Anon and Service Keys (debes generar estas con tu JWT_SECRET)
+ANON_KEY=tu-anon-key-aqui
+SERVICE_ROLE_KEY=tu-service-role-key-aqui
 "@
 
     $envContent | Out-File -FilePath ".env" -Encoding UTF8
