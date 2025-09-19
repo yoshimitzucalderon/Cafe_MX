@@ -1,4 +1,4 @@
-import { supabaseFallbackClient } from '../supabase/client-fallback';
+import { supabaseFallbackClient, getConfiguredSupabaseClient } from '../supabase/client-fallback';
 
 export type AuthUser = {
   id: string;
@@ -35,7 +35,9 @@ export type SignInData = {
 };
 
 export class SupabaseAuthService {
-  private client = supabaseFallbackClient;
+  private client = typeof window !== 'undefined'
+    ? getConfiguredSupabaseClient(true) // Usar proxy en el cliente para evitar CORS
+    : supabaseFallbackClient;
   private useMockAuth = false; // Usar autenticación real de Supabase
 
   async signUp(data: SignUpData) {
