@@ -36,40 +36,11 @@ export type SignInData = {
 
 export class SupabaseAuthService {
   private client = supabaseFallbackClient;
-  private useMockAuth = true; // Temporalmente hasta configurar SSL/CORS correctamente
+  private useMockAuth = false; // Usar autenticación real de Supabase
 
   async signUp(data: SignUpData) {
     try {
-      // Usar mock auth temporalmente
-      if (this.useMockAuth) {
-        console.log('🔐 Using mock auth service (temporary)');
-        const response = await fetch('/api/auth/mock', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: data.email,
-            password: data.password,
-            ...data.options.data
-          })
-        });
-
-        const mockData = await response.json();
-
-        if (!response.ok) {
-          return { user: null, error: mockData.error || 'Mock auth failed' };
-        }
-
-        console.log('✅ Mock user signed up successfully:', data.email);
-
-        // Guardar en localStorage para simular persistencia
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('mock-auth-session', JSON.stringify(mockData));
-        }
-
-        return { user: mockData.user, error: null };
-      }
-
-      // Código original de Supabase (se usará cuando el servicio esté configurado)
+      // Usar Supabase real
       const { data: authData, error } = await this.client.auth.signUp({
         email: data.email,
         password: data.password,
