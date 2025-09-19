@@ -35,9 +35,7 @@ export type SignInData = {
 };
 
 export class SupabaseAuthService {
-  private client = typeof window !== 'undefined'
-    ? getConfiguredSupabaseClient(true) // Usar proxy en el cliente para evitar CORS
-    : supabaseFallbackClient;
+  private client = supabaseFallbackClient; // Usar cliente directo sin proxy
   private useMockAuth = false; // Usar autenticación real de Supabase
 
   async signUp(data: SignUpData) {
