@@ -70,7 +70,13 @@ async function handleSupabaseProxy(
     }
 
     // Construir la URL correcta para Supabase
-    const path = pathSegments.join('/');
+    // Si el path empieza con 'auth', necesitamos agregar el prefijo correcto
+    let path = pathSegments.join('/');
+
+    // Asegurar que las rutas de auth tengan el formato correcto
+    if (path.startsWith('auth/') && !path.startsWith('auth/v1/')) {
+      path = path.replace('auth/', 'auth/v1/');
+    }
 
     const url = new URL(request.url);
     const supabaseUrl = `${SUPABASE_URL}/${path}${url.search}`;
@@ -78,6 +84,8 @@ async function handleSupabaseProxy(
     console.log('🔄 Proxying to:', supabaseUrl);
     console.log('📦 Method:', request.method);
     console.log('🌐 SUPABASE_URL:', SUPABASE_URL);
+    console.log('📋 Original path:', pathSegments.join('/'));
+    console.log('📋 Final path:', path);
 
     const headers: Record<string, string> = {};
 
@@ -127,7 +135,28 @@ async function handleSupabaseProxy(
     console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
 
     const responseText = await response.text();
-    console.log('📥 Response text (first 200 chars):', responseText.substring(0, 200));
+    console.log('📥 Response text (first 500 chars):', responseText.substring(0, 500));
+
+    // Check if response is HTML (error page)
+    if (responseText.startsWith('<!DOCTYPE') || responseText.startsWith('<html')) {
+      console.error('❌ Received HTML response instead of JSON - likely a 404 or error page');
+      console.error('❌ Full URL attempted:', supabaseUrl);
+      return NextResponse.json(
+        {
+          error: 'Invalid response from Supabase',
+          details: 'Received HTML instead of JSON. Check if the Supabase URL is correct.',
+          attemptedUrl: supabaseUrl
+        },
+        {
+          status: 502,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, apikey, X-Client-Info',
+          }
+        }
+      );
+    }
 
     let responseData;
 

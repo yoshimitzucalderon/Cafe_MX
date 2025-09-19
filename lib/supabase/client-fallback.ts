@@ -103,8 +103,13 @@ export default supabaseFallbackClient;
 export function getConfiguredSupabaseClient(forceProxy = false) {
   if (forceProxy && typeof window !== 'undefined') {
     console.log('🔄 Creating forced proxy client');
+    console.log('📍 Proxy URL:', `${window.location.origin}/api/supabase`);
+
+    // Use proxy URL that will forward to actual Supabase
+    const proxyUrl = `${window.location.origin}/api/supabase`;
+
     return createClient(
-      `${window.location.origin}/api/supabase`,
+      proxyUrl,
       supabaseAnonKey,
       {
         auth: {
@@ -119,6 +124,7 @@ export function getConfiguredSupabaseClient(forceProxy = false) {
         global: {
           headers: {
             'X-Client-Info': 'cafemx-proxy',
+            'apikey': supabaseAnonKey,
           }
         }
       }
