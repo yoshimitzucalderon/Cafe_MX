@@ -26,7 +26,8 @@
       "Bash(mv:*)",
       "Bash(rm:*)",
       "Bash(mkdir:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []
