@@ -39,7 +39,8 @@ export function shouldUseProxy(): boolean {
     return false;
   }
 
-  // En localhost, usar proxy para evitar CORS hasta que se configure SSL/CORS
+  // En localhost, usar proxy para evitar CORS
+  // El proxy ha sido mejorado para manejar respuestas grandes
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return true;
   }

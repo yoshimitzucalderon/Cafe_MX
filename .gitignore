@@ -134,3 +134,10 @@ supabase-config/*.env
 /storage
 *.key
 *.pem
+
+# Test files (may contain exposed keys)
+test_*.js
+test_*.py
+test_*.html
+check_*.sh
+*_test.*
