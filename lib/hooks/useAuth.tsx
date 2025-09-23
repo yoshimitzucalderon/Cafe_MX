@@ -131,6 +131,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) {
+        if (error === 'USER_ALREADY_REGISTERED') {
+          // Try to sign in automatically
+          const { error: signInError } = await authService.signIn({ email, password });
+          if (signInError) {
+            setLoading(false);
+            return { error: 'El usuario ya existe. Intenta iniciar sesión.' };
+          }
+          // Success path; auth state change will update UI
+          return { error: null };
+        }
         setLoading(false);
         return { error };
       }

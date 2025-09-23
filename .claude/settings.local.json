@@ -27,7 +27,8 @@
       "Bash(rm:*)",
       "Bash(mkdir:*)",
       "Bash(sed:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(start http://localhost:3003/)"
     ],
     "deny": [],
     "ask": []

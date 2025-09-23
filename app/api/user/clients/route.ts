@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserClients } from '@/lib/supabase/tenant-client';
-import { getSupabaseAdmin } from '@/lib/supabase/tenant-client';
+import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the authorization header
     const authHeader = request.headers.get('authorization');
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -18,9 +17,28 @@ export async function GET(request: NextRequest) {
 
     const token = authHeader.replace('Bearer ', '');
 
-    // Verify the token using admin client
-    const admin = getSupabaseAdmin();
-    const { data: { user }, error: authError } = await admin.auth.getUser(token);
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json(
+        { error: 'Supabase environment is not configured' },
+        { status: 500 }
+      );
+    }
+
+    // Use anon key for auth validation to satisfy Kong key-auth on self-hosted
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: false },
+      db: { schema: 'public' },
+      global: {
+        headers: {
+          apikey: supabaseAnonKey,
+        }
+      }
+    });
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
 
     if (authError || !user) {
       return NextResponse.json(
@@ -29,7 +47,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get user clients using the admin client (server-side)
     const clients = await getUserClients(user.id);
 
     return NextResponse.json({ clients });

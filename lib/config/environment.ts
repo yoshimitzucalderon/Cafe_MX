@@ -7,6 +7,7 @@ export const ENV = {
   IS_PRODUCTION: process.env.NODE_ENV === 'production',
   IS_DEVELOPMENT: process.env.NODE_ENV === 'development',
   IS_VERCEL: process.env.VERCEL === '1',
+  USE_SUPABASE_PROXY: process.env.NEXT_PUBLIC_USE_SUPABASE_PROXY === 'true',
 } as const;
 
 // Validación de configuración
@@ -34,19 +35,8 @@ export function validateEnvironment(): { isValid: boolean; errors: string[] } {
 
 // Función para determinar si usar proxy
 export function shouldUseProxy(): boolean {
-  // En servidor, nunca usar proxy
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  // En localhost, usar proxy para evitar CORS
-  // El proxy ha sido mejorado para manejar respuestas grandes
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return true;
-  }
-
-  // Por defecto, no usar proxy
-  return false;
+  // Use proxy when explicitly enabled via env (recommended for local dev to avoid CORS)
+  return !!ENV.USE_SUPABASE_PROXY;
 }
 
 // Función para obtener la URL de Supabase correcta

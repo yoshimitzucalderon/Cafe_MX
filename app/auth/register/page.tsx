@@ -112,7 +112,10 @@ export default function RegisterPage() {
 
       if (authError) {
         console.error('❌ Auth registration failed:', authError);
-        setError(authError);
+        setError(authError === 'USER_ALREADY_REGISTERED' 
+          ? 'Este correo ya está registrado. Intentando iniciar sesión…'
+          : authError
+        );
         setIsLoading(false);
         return;
       }

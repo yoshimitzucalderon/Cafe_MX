@@ -45,6 +45,7 @@ export class SupabaseAuthService {
         email: data.email,
         password: data.password,
         options: {
+          emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || ''}/auth/verify-email`,
           data: {
             full_name: data.options.data.full_name,
             business_name: data.options.data.business_name,
@@ -55,7 +56,12 @@ export class SupabaseAuthService {
 
       if (error) {
         console.error('🚨 Auth signup error:', error);
-        return { user: null, error: error.message };
+        // Detect Supabase "User already registered" case to allow caller to fallback to sign-in
+        const message = (error as any)?.message || '';
+        if (message.toLowerCase().includes('already registered')) {
+          return { user: null, error: 'USER_ALREADY_REGISTERED' };
+        }
+        return { user: null, error: message || 'Signup failed' };
       }
 
       if (!authData.user) {
