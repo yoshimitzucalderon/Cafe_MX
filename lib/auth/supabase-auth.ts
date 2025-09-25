@@ -1,4 +1,4 @@
-import { supabaseFallbackClient, getConfiguredSupabaseClient } from '../supabase/client-fallback';
+import { supabaseFallbackClient } from '../supabase/client-fallback';
 
 export type AuthUser = {
   id: string;
@@ -35,7 +35,7 @@ export type SignInData = {
 };
 
 export class SupabaseAuthService {
-  private client = supabaseFallbackClient; // Usar cliente directo sin proxy
+  private client = supabaseFallbackClient; // Cliente por defecto (proxy si está habilitado)
   private useMockAuth = false; // Usar autenticación real de Supabase
 
   async signUp(data: SignUpData) {
@@ -82,29 +82,89 @@ export class SupabaseAuthService {
 
   async signIn(data: SignInData) {
     try {
-      const { data: authData, error } = await this.client.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
+      console.log('🚀 Starting signIn process for:', data.email);
+
+      // Add timeout and better error handling for fetch
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+      console.log('📡 Making fetch request to /api/auth/login...');
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: data.email, password: data.password }),
+        signal: controller.signal
       });
 
-      if (error) {
-        console.error('🚨 Auth signin error:', error);
-        return { user: null, session: null, error: error.message };
+      clearTimeout(timeoutId);
+      console.log('📡 Fetch response received, status:', response.status, 'ok:', response.ok);
+
+      if (!response.ok) {
+        let message = 'Login failed';
+        try {
+          const contentType = response.headers.get('content-type') || '';
+          console.log('📋 Response content-type:', contentType);
+
+          if (contentType.includes('application/json')) {
+            const err = await response.json();
+            console.log('❌ Server error response:', err);
+            message = err?.error || message;
+          } else {
+            const text = await response.text();
+            console.log('❌ Server text response:', text);
+            if (text) message = text;
+          }
+        } catch (parseError) {
+          console.error('🚨 Error parsing server response:', parseError);
+        }
+        return { user: null, session: null, error: message };
       }
 
-      console.log('✅ User signed in successfully:', authData.user?.email);
-      return { 
-        user: authData.user, 
-        session: authData.session, 
-        error: null 
-      };
+      console.log('✅ Response OK, parsing JSON...');
+      const responseData = await response.json();
+      console.log('📦 Response data received:', { hasUser: !!responseData.user, hasSession: !!responseData.session });
+
+      const { user, session } = responseData;
+      console.log('✅ User signed in successfully:', user?.email);
+
+      // Persistir la sesión en el cliente de Supabase para activar onAuthStateChange
+      if (session?.access_token && session?.refresh_token) {
+        console.log('🔐 Setting session in Supabase client...');
+        const { error: setError } = await this.client.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+
+        if (setError) {
+          console.error('🚨 Error setting Supabase session on client:', setError);
+          return { user: null, session: null, error: setError.message };
+        }
+        console.log('✅ Session set in Supabase client successfully');
+      } else {
+        console.error('🚨 Missing tokens from server login response:', { hasAccessToken: !!session?.access_token, hasRefreshToken: !!session?.refresh_token });
+        return { user: null, session: null, error: 'Missing tokens from login response' };
+      }
+
+      return { user, session, error: null };
 
     } catch (error) {
       console.error('🚨 Signin exception:', error);
-      return { 
-        user: null, 
+
+      // Provide more specific error messages
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          return { user: null, session: null, error: 'Request timeout - server took too long to respond' };
+        }
+        if (error.message.includes('Failed to fetch')) {
+          return { user: null, session: null, error: 'Network error - unable to connect to server. Check your internet connection.' };
+        }
+        return { user: null, session: null, error: error.message };
+      }
+
+      return {
+        user: null,
         session: null,
-        error: error instanceof Error ? error.message : 'Unknown error during signin' 
+        error: 'Unknown error during signin'
       };
     }
   }

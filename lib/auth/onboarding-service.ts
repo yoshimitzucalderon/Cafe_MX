@@ -172,12 +172,11 @@ class OnboardingService {
    * Get dashboard URL for client
    */
   private getDashboardUrl(slug: string): string {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ycm360.com';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3004';
 
-    // For local development - use path-based routing instead of subdomain
+    // For local development - use the same port as the app and path-based routing
     if (baseUrl.includes('localhost') || process.env.NODE_ENV === 'development') {
-      // Use dynamic route format: /[cafeteria]/dashboard
-      return `http://localhost:3001/${slug}/dashboard`;
+      return `${baseUrl.replace(/\/$/, '')}/${slug}/dashboard`;
     }
 
     // For production - use subdomain routing

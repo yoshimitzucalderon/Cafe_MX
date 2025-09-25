@@ -1,9 +1,10 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { authService, AuthUser } from '../auth/supabase-auth';
 import { getUserClientsClient, UserClientAccess } from '../supabase/tenant-client';
+import { RateLimiter } from './useDebounce';
 
 export type AuthContextType = {
   user: User | null;
@@ -23,28 +24,52 @@ export type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Rate limiter for client refresh calls (max 5 calls per 10 seconds)
+const clientRefreshRateLimiter = new RateLimiter(5, 10000);
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userClients, setUserClients] = useState<UserClientAccess[]>([]);
   const [loading, setLoading] = useState(true);
+  const lastRefreshTime = useRef<number>(0);
 
-  // Function to refresh user clients
-  const refreshUserClients = async () => {
-    if (!session?.access_token) {
+  // Function to refresh user clients with rate limiting - memoized with useCallback
+  const refreshUserClients = useCallback(async () => {
+    if (!session?.access_token || !user) {
+      console.log('⏸️ Skipping client refresh - no active session');
       setUserClients([]);
       return;
     }
 
+    // Simple throttle: wait at least 2 seconds between calls
+    const now = Date.now();
+    if (now - lastRefreshTime.current < 2000) {
+      console.log('🚦 Throttling client refresh, too soon since last call');
+      return;
+    }
+    lastRefreshTime.current = now;
+
+    // Check rate limiter before making API call
+    if (!clientRefreshRateLimiter.canMakeCall()) {
+      console.log('🚦 Rate limit exceeded for client refresh, skipping call');
+      return;
+    }
+
     try {
+      console.log('🔄 Refreshing user clients for:', user.email);
       const clients = await getUserClientsClient(session.access_token);
       setUserClients(clients);
       console.log(`✅ Loaded ${clients.length} client(s) for user:`, user?.email);
     } catch (error) {
       console.error('🚨 Error fetching user clients:', error);
+      // Don't spam errors when user is not authenticated
+      if (error instanceof Error && !error.message.includes('401')) {
+        console.error('Non-auth error details:', error);
+      }
       setUserClients([]);
     }
-  };
+  }, [session, user]);
 
   // Initialize auth state
   useEffect(() => {
@@ -107,8 +132,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshUserClients();
     } else if (!session) {
       setUserClients([]);
+      clientRefreshRateLimiter.reset(); // Reset rate limiter when session ends
     }
-  }, [session, loading]);
+  }, [session, loading, refreshUserClients]);
 
   const signUp = async (
     email: string, 

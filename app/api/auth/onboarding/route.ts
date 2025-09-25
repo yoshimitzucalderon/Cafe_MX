@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { onboardingService } from '../../../../lib/auth/onboarding-service';
-import { getUserSupabase } from '../../../../lib/supabase/tenant-client';
+import { getSupabaseAdmin } from '../../../../lib/supabase/tenant-client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,12 +20,9 @@ export async function POST(request: NextRequest) {
     const token = authHeader.replace('Bearer ', '');
     console.log('🎫 Token extracted, length:', token.length);
 
-    const supabase = getUserSupabase();
-    console.log('🔗 Supabase client initialized');
-
-    // Get user from token
-    console.log('👤 Getting user from token...');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    // Validate token using server-side admin client (bypasses proxy issues)
+    const admin = getSupabaseAdmin();
+    const { data: { user }, error: authError } = await admin.auth.getUser(token);
 
     if (authError) {
       console.log('❌ Auth error:', authError);
@@ -116,22 +113,24 @@ export async function GET(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('🚨 /api/auth/onboarding: No auth header, user needs login');
       return NextResponse.json(
-        { needsOnboarding: false, error: 'Missing or invalid authorization header' },
-        { status: 401 }
+        { needsOnboarding: false },
+        { status: 200 }
       );
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const supabase = getUserSupabase();
 
-    // Get user from token
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    // Validate token using server-side admin client
+    const admin = getSupabaseAdmin();
+    const { data: { user }, error: authError } = await admin.auth.getUser(token);
 
     if (authError || !user) {
+      console.log('🚨 /api/auth/onboarding: Invalid token, user needs login');
       return NextResponse.json(
-        { needsOnboarding: false, error: 'Invalid or expired token' },
-        { status: 401 }
+        { needsOnboarding: false },
+        { status: 200 }
       );
     }
 

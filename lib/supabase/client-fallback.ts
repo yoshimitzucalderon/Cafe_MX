@@ -24,7 +24,7 @@ const createSupabaseClient = () => {
       detectSessionInUrl: true,
       flowType: 'pkce',
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      storageKey: 'sb-auth-token',
+      storageKey: 'sb-auth-fallback',
     },
     db: {
       schema: 'public'
@@ -38,6 +38,27 @@ const createSupabaseClient = () => {
 };
 
 export const supabaseFallbackClient = createSupabaseClient();
+
+// Direct client (bypasses proxy) to be used for critical auth flows when proxy is flaky
+export function getDirectSupabaseClient() {
+  const clientUrl = ENV.SUPABASE_URL;
+  return createClient(clientUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      storageKey: 'sb-auth-direct',
+    },
+    db: { schema: 'public' },
+    global: {
+      headers: {
+        'X-Client-Info': 'cafemx-direct',
+      }
+    }
+  });
+}
 
 // Función para testear la conexión
 export async function testSupabaseConnection(): Promise<{
@@ -118,7 +139,7 @@ export function getConfiguredSupabaseClient(forceProxy = false) {
           detectSessionInUrl: true,
           flowType: 'pkce',
           storage: window.localStorage,
-          storageKey: 'sb-auth-token',
+          storageKey: 'sb-auth-proxy',
         },
         db: { schema: 'public' },
         global: {

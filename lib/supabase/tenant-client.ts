@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { supabaseFallbackClient } from './client-fallback';
 
 // Debug environment variables
 console.log('🔍 Supabase Client Init - Environment Check:');
@@ -52,7 +53,12 @@ if (!supabaseAnonKey) {
 export const supabaseAdmin = supabaseServiceKey
   ? createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false },
-      db: { schema: 'public' }
+      db: { schema: 'public' },
+      global: {
+        headers: {
+          apikey: supabaseServiceKey
+        }
+      }
     })
   : null;
 
@@ -75,25 +81,17 @@ export function getSupabaseAdmin() {
 
   return createClient(url, serviceKey, {
     auth: { persistSession: false },
-    db: { schema: 'public' }
+    db: { schema: 'public' },
+    global: {
+      headers: {
+        apikey: serviceKey
+      }
+    }
   });
 }
 
-// Client-side client with improved session handling
-export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce'
-  },
-  db: { schema: 'public' },
-  global: {
-    headers: {
-      'X-Client-Info': 'cafemx-client'
-    }
-  }
-});
+// Reuse the single fallback client on the browser to avoid multiple GoTrue instances
+export const supabaseClient = supabaseFallbackClient;
 
 const clientCache = new Map<string, any>();
 
@@ -121,6 +119,7 @@ export function getClientSupabase(schemaName: string): any {
     auth: { persistSession: false },
     global: {
       headers: {
+        apikey: supabaseServiceKey,
         'X-Client-Schema': schemaName
       }
     }
@@ -336,6 +335,11 @@ export async function createTenantClient({
   plan?: string;
 }): Promise<{ success: boolean; client?: ClientInfo; error?: string }> {
   try {
+    // Ensure server-side admin credentials are available
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return { success: false, error: 'Server not configured: SUPABASE_SERVICE_ROLE_KEY is missing' };
+    }
+
     if (!slug.match(/^[a-z0-9-]+$/)) {
       return { success: false, error: 'Invalid slug format. Use only lowercase letters, numbers, and hyphens.' };
     }
@@ -347,7 +351,13 @@ export async function createTenantClient({
       return { success: false, error: 'Client slug already exists' };
     }
 
-    const admin = getSupabaseAdmin();
+    let admin: any;
+    try {
+      admin = getSupabaseAdmin();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Unknown admin client error';
+      return { success: false, error: `Supabase admin client error: ${message}` };
+    }
 
     const { data: existingSchema } = await admin
       .from('clientes')
@@ -378,7 +388,13 @@ export async function createTenantClient({
 
     if (clientError) {
       console.error('Error creating client:', clientError);
-      return { success: false, error: 'Failed to create client record' };
+      const details = (clientError as any)?.message || (clientError as any)?.hint || (clientError as any)?.code || 'unknown error';
+      return { success: false, error: `Failed to create client record: ${details}` };
+    }
+
+    if (!newClient) {
+      console.error('Client insert returned no data');
+      return { success: false, error: 'Failed to create client record: no data returned' };
     }
 
     const { error: userAccessError } = await admin
@@ -414,7 +430,8 @@ export async function createTenantClient({
 
   } catch (error) {
     console.error('Exception in createClient:', error);
-    return { success: false, error: 'Unexpected error during client creation' };
+    const message = error instanceof Error ? error.message : 'Unexpected error during client creation';
+    return { success: false, error: message };
   }
 }
 

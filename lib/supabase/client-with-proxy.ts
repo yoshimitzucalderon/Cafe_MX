@@ -26,7 +26,8 @@ export const supabaseClientWithProxy = createClient(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      flowType: 'pkce'
+      flowType: 'pkce',
+      storageKey: 'sb-auth-proxy-main'
     },
     db: { schema: 'public' },
     global: {
@@ -49,7 +50,8 @@ export function getSupabaseClient(useProxy = true): SupabaseClient {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      flowType: 'pkce'
+      flowType: 'pkce',
+      storageKey: 'sb-auth-direct-fallback'
     },
     db: { schema: 'public' }
   });

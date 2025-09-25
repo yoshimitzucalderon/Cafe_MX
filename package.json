@@ -4,7 +4,7 @@
   "description": "Multi-tenant SaaS para gestión de cafeterías mexicanas con OCR",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3004",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -25,6 +25,7 @@
     "autoprefixer": "^10.4.21",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
+    "dotenv": "^17.2.2",
     "lucide-react": "^0.294.0",
     "next": "^14.2.32",
     "postcss": "^8.5.6",

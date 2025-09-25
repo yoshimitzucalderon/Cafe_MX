@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { Coffee, Eye, EyeOff, Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../../lib/hooks/useAuth';
 import { useOnboarding } from '../../../lib/hooks/useOnboarding';
-import { useSessionMonitor } from '../../../lib/hooks/useSessionMonitor';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -14,46 +13,38 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const { signIn, user, loading, session } = useAuth();
   const { checkNeedsOnboarding } = useOnboarding();
   const router = useRouter();
 
-  // Monitor session health
-  const { sessionExpiresAt, sessionValid } = useSessionMonitor({
-    onSessionExpiringSoon: () => {
-      console.warn('🚨 Session expiring soon!');
-    },
-    onSessionExpired: () => {
-      console.error('❌ Session expired!');
-      setError('Tu sesión ha expirado. Por favor inicia sesión nuevamente.');
-    }
-  });
-
   // Redirect if already logged in
   useEffect(() => {
-    if (user && !loading) {
-      // Check if user needs onboarding or redirect to dashboard
-      handleSuccessfulLogin();
+    if (!loading && user && session?.access_token) {
+      console.log('🔑 User already authenticated, redirecting...');
+      checkOnboardingAndRedirect();
+    } else if (!loading && !user) {
+      console.log('👤 No authenticated user found');
     }
-  }, [user, loading]);
+  }, [user, session, loading]);
 
-  const handleSuccessfulLogin = async () => {
-    if (!user) return;
-
+  const checkOnboardingAndRedirect = async () => {
     try {
-      // Check if user needs onboarding
+      console.log('🔄 Checking onboarding status...');
       const result = await checkNeedsOnboarding();
+      console.log('📊 Onboarding result:', result);
 
       if (result.needsOnboarding) {
+        console.log('➡️ Redirecting to onboarding...');
         router.push('/onboarding');
       } else {
-        // User has existing clients, redirect to their first client or client selector
+        console.log('➡️ Redirecting to dashboard...');
         router.push('/dashboard');
       }
     } catch (error) {
       console.error('Error checking onboarding status:', error);
       // Fallback to dashboard
+      console.log('➡️ Fallback redirect to dashboard...');
       router.push('/dashboard');
     }
   };
@@ -62,10 +53,9 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
-    
+
     try {
       console.log('🚀 Starting login process...');
-
       const { error: loginError } = await signIn(email.trim(), password);
 
       if (loginError) {
@@ -75,9 +65,11 @@ export default function LoginPage() {
         return;
       }
 
-      console.log('✅ Login successful');
-      // handleSuccessfulLogin will be called by useEffect when user state changes
-      
+      console.log('✅ Login successful, waiting for auth state update...');
+
+      // The useEffect hook will handle the redirect when the user state updates
+      // Keep loading state until redirect happens
+
     } catch (error) {
       console.error('🚨 Login error:', error);
       setError(error instanceof Error ? error.message : 'Error desconocido durante el inicio de sesión');
@@ -102,39 +94,23 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+        {/* Form */}
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {/* Error Message */}
+          {error && (
+            <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
               <p className="text-sm text-red-800">{error}</p>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Debug Info - Solo en desarrollo */}
-        {process.env.NODE_ENV === 'development' && user && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="text-sm">
-              <p><strong>👤 Usuario:</strong> {user.email}</p>
-              <p><strong>🕐 Sesión expira:</strong> {sessionExpiresAt?.toLocaleString() || 'No disponible'}</p>
-              <p><strong>✅ Sesión válida:</strong> {sessionValid ? 'Sí' : 'No'}</p>
-              <p><strong>🔑 Token presente:</strong> {session?.access_token ? 'Sí' : 'No'}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Login Form */}
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
+            {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Correo Electrónico
               </label>
               <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
-                </div>
                 <input
                   id="email"
                   name="email"
@@ -143,20 +119,20 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  className="appearance-none block w-full px-3 py-2 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
                   placeholder="tu@email.com"
+                  disabled={isLoading}
                 />
+                <Mail className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
               </div>
             </div>
 
+            {/* Password Field */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Contraseña
               </label>
               <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
-                </div>
                 <input
                   id="password"
                   name="password"
@@ -165,26 +141,28 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                  placeholder="Tu contraseña"
+                  className="appearance-none block w-full px-3 py-2 pl-10 pr-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+                  placeholder="••••••••"
+                  disabled={isLoading}
                 />
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
+                <Lock className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2.5"
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-500" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-500" />
+                  )}
+                </button>
               </div>
             </div>
           </div>
 
+          {/* Remember Me & Forgot Password */}
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <input
@@ -199,32 +177,39 @@ export default function LoginPage() {
             </div>
 
             <div className="text-sm">
-              <a href="#" className="font-medium text-orange-600 hover:text-orange-500">
+              <Link href="/auth/forgot-password" className="font-medium text-orange-600 hover:text-orange-500">
                 ¿Olvidaste tu contraseña?
-              </a>
+              </Link>
             </div>
           </div>
 
-          <div>
-            <button
-              type="submit"
-              disabled={isLoading || loading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
-            </button>
-          </div>
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            {isLoading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Iniciando sesión...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-5 w-5" />
+                <span>Iniciar Sesión</span>
+              </>
+            )}
+          </button>
 
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
-              ¿No tienes una cuenta?{' '}
-              <Link href="/auth/register" className="font-medium text-orange-600 hover:text-orange-500">
-                Crear cuenta
-              </Link>
-            </p>
+          {/* Sign Up Link */}
+          <div className="text-center text-sm text-gray-600">
+            ¿No tienes una cuenta?{' '}
+            <Link href="/auth/signup" className="font-medium text-orange-600 hover:text-orange-500">
+              Crear cuenta
+            </Link>
           </div>
         </form>
-
       </div>
     </div>
   );

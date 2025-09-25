@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserClients } from '@/lib/supabase/tenant-client';
-import { createClient } from '@supabase/supabase-js';
+import { getUserClients, getSupabaseAdmin } from '@/lib/supabase/tenant-client';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,41 +8,24 @@ export async function GET(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('🚨 /api/user/clients: No auth header, returning empty clients');
       return NextResponse.json(
-        { error: 'Missing or invalid authorization header' },
-        { status: 401 }
+        { clients: [] },
+        { status: 200 }
       );
     }
 
     const token = authHeader.replace('Bearer ', '');
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json(
-        { error: 'Supabase environment is not configured' },
-        { status: 500 }
-      );
-    }
-
-    // Use anon key for auth validation to satisfy Kong key-auth on self-hosted
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: { persistSession: false },
-      db: { schema: 'public' },
-      global: {
-        headers: {
-          apikey: supabaseAnonKey,
-        }
-      }
-    });
-
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    // Use server-side admin client to validate the JWT reliably (no proxy)
+    const admin = getSupabaseAdmin();
+    const { data: { user }, error: authError } = await admin.auth.getUser(token);
 
     if (authError || !user) {
+      console.log('🚨 /api/user/clients: Invalid token, returning empty clients');
       return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
+        { clients: [] },
+        { status: 200 }
       );
     }
 
@@ -54,8 +36,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error in /api/user/clients:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { clients: [] },
+      { status: 200 }
     );
   }
 }
