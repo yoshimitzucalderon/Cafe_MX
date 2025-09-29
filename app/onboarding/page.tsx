@@ -10,14 +10,17 @@ import { useOnboarding } from '../../lib/hooks/useOnboarding';
 export default function OnboardingPage() {
   const [success, setSuccess] = useState(false);
   const [createdClient, setCreatedClient] = useState<any>(null);
+  const [redirecting, setRedirecting] = useState(false);
 
-  const { user, loading } = useAuth();
+  const { user, session, loading } = useAuth();
   const { isLoading, error, completeOnboarding, checkNeedsOnboarding } = useOnboarding();
   const router = useRouter();
 
   // Check if user is authenticated
   useEffect(() => {
+    console.log('🔍 ONBOARDING AUTH CHECK:', { loading, hasUser: !!user });
     if (!loading && !user) {
+      console.log('🚨 ONBOARDING: No user, redirecting to login');
       router.push('/auth/login');
     }
   }, [user, loading, router]);
@@ -27,10 +30,12 @@ export default function OnboardingPage() {
     const checkExistingClients = async () => {
       if (!user) return;
 
+      console.log('🔍 ONBOARDING: Checking if user already has clients...');
       try {
         const result = await checkNeedsOnboarding();
-        if (!result.needsOnboarding && !result.error) {
-          // User already has clients, redirect to dashboard
+        if (!result.needsOnboarding && !result.error && !redirecting) {
+          console.log('✅ ONBOARDING: User already has clients, redirecting to dashboard');
+          setRedirecting(true);
           router.push('/dashboard');
         }
       } catch (error) {
@@ -44,7 +49,7 @@ export default function OnboardingPage() {
   }, [user, router, checkNeedsOnboarding]);
 
   const handleCompleteOnboarding = async () => {
-    if (!user) return;
+    if (!user || !session?.access_token) return;
 
     console.log('🚀 Starting onboarding process for user:', user.email);
 
@@ -53,29 +58,43 @@ export default function OnboardingPage() {
     const fullName = user.user_metadata?.full_name;
 
     if (!businessName || !fullName) {
-      console.error('Información de registro incompleta');
+      console.error('❌ Información de registro incompleta');
+      // Note: using error from useOnboarding hook instead of local setError
       return;
     }
 
     try {
+      // Try the original onboarding service first
       const result = await completeOnboarding();
 
-      if (!result.success || !result.client) {
-        console.error('Onboarding failed:', result.error);
+      if (result.success && result.client) {
+        console.log('✅ Onboarding completed successfully:', result.client);
+        setCreatedClient(result.client);
+        setSuccess(true);
+
+        // Redirect to main dashboard after a brief delay
+        console.log('✅ ONBOARDING: Success, redirecting to dashboard in 3 seconds');
+        setTimeout(() => {
+          if (!redirecting) {
+            console.log('🔀 ONBOARDING: Executing redirect to /dashboard');
+            setRedirecting(true);
+            router.push('/dashboard');
+          }
+        }, 3000);
         return;
       }
 
-      console.log('✅ Onboarding completed successfully:', result.client);
-      setCreatedClient(result.client);
-      setSuccess(true);
+      // If original method fails, show error
+      console.log('❌ Onboarding service failed:', result.error);
 
-      // Redirect to dashboard after a brief delay
-      setTimeout(() => {
-        router.push(result.client!.dashboard_url);
-      }, 3000);
+      // Don't create mock clients - show the actual error
+      // This prevents the infinite loop by not creating fake success states
+      return;
 
     } catch (error) {
       console.error('🚨 Onboarding error:', error);
+      // Don't create mock clients on error - let the error be displayed
+      // This prevents the infinite loop
     }
   };
 
@@ -138,8 +157,8 @@ export default function OnboardingPage() {
             <p className="text-sm text-gray-600 mb-4">
               Redirigiendo a tu dashboard en unos segundos...
             </p>
-            <Link 
-              href={createdClient.dashboard_url}
+            <Link
+              href="/dashboard"
               className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-orange-600 hover:bg-orange-700"
             >
               Ir al Dashboard

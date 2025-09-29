@@ -31,6 +31,11 @@ export function useOnboarding() {
   const [error, setError] = useState<string | null>(null);
 
   const getAuthHeaders = () => {
+    console.log('🔐 useOnboarding - Getting auth headers');
+    console.log('🔐 Session exists:', !!session);
+    console.log('🔐 Access token exists:', !!session?.access_token);
+    console.log('🔐 Token preview:', session?.access_token ? `${session.access_token.substring(0, 20)}...` : 'null');
+
     if (!session?.access_token) {
       throw new Error('No authentication token available');
     }

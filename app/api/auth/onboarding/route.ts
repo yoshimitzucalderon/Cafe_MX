@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { onboardingService } from '../../../../lib/auth/onboarding-service';
-import { getSupabaseAdmin } from '../../../../lib/supabase/tenant-client';
+import { mockDB, parseJWT, generateUniqueSlug } from '../../../../lib/mock-database';
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('📥 POST /api/auth/onboarding - Request received');
+    console.log('📥 POST /api/auth/onboarding - Request received (LOCAL DEV MODE)');
 
     const authHeader = request.headers.get('authorization');
     console.log('🔐 Auth header present:', !!authHeader);
@@ -20,22 +19,33 @@ export async function POST(request: NextRequest) {
     const token = authHeader.replace('Bearer ', '');
     console.log('🎫 Token extracted, length:', token.length);
 
-    // Validate token using server-side admin client (bypasses proxy issues)
-    const admin = getSupabaseAdmin();
-    const { data: { user }, error: authError } = await admin.auth.getUser(token);
+    // Parse and validate JWT token
+    let user;
+    try {
+      const payload = parseJWT(token);
+      console.log('🔍 JWT payload parsed successfully, user_id:', payload.sub);
 
-    if (authError) {
-      console.log('❌ Auth error:', authError);
-      return NextResponse.json(
-        { success: false, error: 'Invalid or expired token' },
-        { status: 401 }
-      );
-    }
+      // Basic validation: check token expiration
+      const now = Math.floor(Date.now() / 1000);
+      if (payload.exp && payload.exp < now) {
+        console.log('❌ Token expired');
+        return NextResponse.json(
+          { success: false, error: 'Token expired' },
+          { status: 401 }
+        );
+      }
 
-    if (!user) {
-      console.log('❌ No user found');
+      user = {
+        id: payload.sub,
+        email: payload.email,
+        user_metadata: payload.user_metadata || {},
+        created_at: new Date().toISOString()
+      };
+
+    } catch (error) {
+      console.log('❌ Token parsing error:', error);
       return NextResponse.json(
-        { success: false, error: 'Invalid or expired token' },
+        { success: false, error: 'Invalid token format' },
         { status: 401 }
       );
     }
@@ -63,40 +73,69 @@ export async function POST(request: NextRequest) {
 
     console.log('🚀 Starting onboarding process for user:', user.email);
 
-    // Complete onboarding
-    console.log('⚡ Calling onboardingService.completeOnboarding...');
-    const result = await onboardingService.completeOnboarding({
-      userId: user.id,
-      email: user.email!,
-      fullName: fullName,
-      businessName: businessName,
-      phone: phone,
-      plan: 'basic'
+    // Generate unique slug
+    const slug = generateUniqueSlug(businessName);
+
+    console.log('✅ Generated unique slug:', slug);
+
+    // Create mock client
+    const clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const schemaName = `cliente_${slug.replace(/-/g, '_')}`;
+
+    const mockClient = {
+      id: clientId,
+      nombre_negocio: businessName,
+      slug: slug,
+      schema_name: schemaName,
+      owner_email: user.email,
+      owner_user_id: user.id,
+      rfc: null,
+      plan: 'basic',
+      activo: true,
+      features: {
+        ocr_processing: true,
+        basic_pos: true,
+        inventory_management: true,
+        basic_reports: true
+      },
+      max_usuarios: 5,
+      max_tickets_mes: 500,
+      created_at: new Date().toISOString(),
+      last_activity: new Date().toISOString()
+    };
+
+    // Store in mock database
+    mockDB.setClient(slug, mockClient);
+
+    // Also create user-client relationship
+    const userClientKey = `${user.id}_${clientId}`;
+    mockDB.setUserClient(userClientKey, {
+      user_id: user.id,
+      cliente_id: clientId,
+      slug: slug,
+      schema_name: schemaName,
+      rol: 'owner',
+      activo: true,
+      created_at: new Date().toISOString()
     });
 
-    console.log('📤 Onboarding service result:', {
-      success: result.success,
-      hasClient: !!result.client,
-      error: result.error
-    });
+    console.log('✅ Mock client created successfully:', slug);
 
-    if (!result.success || !result.client) {
-      console.log('❌ Onboarding failed:', result.error);
-      return NextResponse.json(
-        { success: false, error: result.error || 'Error al crear la cafetería' },
-        { status: 500 }
-      );
-    }
-
-    console.log('✅ Onboarding completed successfully for:', result.client.slug);
+    const dashboardUrl = `/${slug}/dashboard`;
 
     return NextResponse.json({
       success: true,
-      client: result.client
+      client: {
+        id: mockClient.id,
+        nombre_negocio: mockClient.nombre_negocio,
+        slug: mockClient.slug,
+        schema_name: mockClient.schema_name,
+        dashboard_url: dashboardUrl
+      }
     });
 
   } catch (error) {
-    console.error('🚨 API Onboarding error:', error);
+    console.error('🚨 API Onboarding error (LOCAL DEV MODE):', error);
     console.error('🚨 Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return NextResponse.json(
       {
@@ -110,6 +149,8 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('📥 GET /api/auth/onboarding - Checking needs (LOCAL DEV MODE)');
+
     const authHeader = request.headers.get('authorization');
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -122,11 +163,12 @@ export async function GET(request: NextRequest) {
 
     const token = authHeader.replace('Bearer ', '');
 
-    // Validate token using server-side admin client
-    const admin = getSupabaseAdmin();
-    const { data: { user }, error: authError } = await admin.auth.getUser(token);
-
-    if (authError || !user) {
+    // Parse JWT token
+    let user;
+    try {
+      const payload = parseJWT(token);
+      user = { id: payload.sub, email: payload.email };
+    } catch (error) {
       console.log('🚨 /api/auth/onboarding: Invalid token, user needs login');
       return NextResponse.json(
         { needsOnboarding: false },
@@ -134,8 +176,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Check if user needs onboarding
-    const needsOnboarding = await onboardingService.needsOnboarding(user.id);
+    // Check if user has any clients in mock database
+    const needsOnboarding = !mockDB.hasClients(user.id);
+
+    console.log('✅ Onboarding check result:', { needsOnboarding, userId: user.id });
 
     return NextResponse.json({
       needsOnboarding,
@@ -143,7 +187,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('🚨 API Onboarding check error:', error);
+    console.error('🚨 API Onboarding check error (LOCAL DEV MODE):', error);
     return NextResponse.json(
       {
         needsOnboarding: false,

@@ -10,6 +10,7 @@ import { useOnboarding } from '../../lib/hooks/useOnboarding';
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [redirecting, setRedirecting] = useState(false);
   
   const { user, userClients, loading, signOut, refreshUserClients } = useAuth();
   const { checkNeedsOnboarding } = useOnboarding();
@@ -17,33 +18,44 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const handleDashboardRedirect = async () => {
+      console.log('🔍 DASHBOARD: Starting redirect logic', { loading, hasUser: !!user });
+
       // Wait for auth to load
-      if (loading) return;
+      if (loading) {
+        console.log('⏳ DASHBOARD: Auth still loading, waiting...');
+        return;
+      }
 
       // If no user, redirect to login
       if (!user) {
+        console.log('🚨 DASHBOARD: No user, redirecting to login');
         router.push('/auth/login');
         return;
       }
 
+      console.log('✅ DASHBOARD: User authenticated, continuing...');
+
       try {
+        console.log('🔄 DASHBOARD: Refreshing user clients...');
         // Refresh user clients to get latest data
         await refreshUserClients();
 
+        console.log('🔍 DASHBOARD: Checking if user needs onboarding...');
         // Check if user needs onboarding
         const onboardingResult = await checkNeedsOnboarding();
-
-        if (onboardingResult.needsOnboarding) {
+        if (onboardingResult.needsOnboarding && !onboardingResult.error && !redirecting) {
+          console.log('🔀 DASHBOARD: User needs onboarding, redirecting...');
+          setRedirecting(true);
           router.push('/onboarding');
           return;
         }
 
         // User has clients - redirect to first client or show selector
-        // Note: userClients might not be loaded yet, so we'll show a selector
+        console.log('✅ DASHBOARD: Setting loading to false, showing dashboard');
         setIsLoading(false);
 
       } catch (error) {
-        console.error('Error in dashboard redirect logic:', error);
+        console.error('🚨 DASHBOARD: Error in redirect logic:', error);
         setError('Error al cargar el dashboard. Por favor, intenta de nuevo.');
         setIsLoading(false);
       }
@@ -183,10 +195,13 @@ export default function DashboardPage() {
                 <p className="text-sm text-gray-600 mb-4">
                   Agrega otra cafetería a tu cuenta
                 </p>
-                <button className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50">
+                <Link
+                  href="/nueva-cafeteria"
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50"
+                >
                   <Plus className="mr-2 h-4 w-4" />
                   Agregar
-                </button>
+                </Link>
               </div>
             </div>
           </div>

@@ -1,3 +1,5 @@
+'use client';
+
 import { Suspense } from 'react';
 import { Coffee, FileText, Package, TrendingUp, AlertTriangle, DollarSign } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
